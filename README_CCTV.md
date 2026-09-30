@@ -6,6 +6,8 @@ Project kế thừa hệ thống tìm kiếm video đa phương thức, mở r�
 
 Hướng dẫn runtime Windows: `docs/WINDOWS_SETUP.md`.
 
+Tiến độ đối chiếu kế hoạch và task tiếp theo: `docs/CCTV_PROGRESS.md`.
+
 Pipeline CCTV mới: `docs/CCTV_INGESTION.md`, dùng manifest độc lập và giữ map/keyframe legacy. Có demo tổng hợp khi chưa có dữ liệu thật.
 
 Dataset demo đã đăng ký: `D:\Project ExploreCS\Demo_Data`, gồm 6 video từ hai camera N001/N002. Manifest: `configs/cctv.demo.json`. Xem `docs/DEMO_DATA.md` để chạy extraction và biết giới hạn đánh giá.
