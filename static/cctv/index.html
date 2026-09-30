@@ -8,6 +8,7 @@
   <script src="/static/app.js" defer></script>
   <script src="/static/traffic.js" defer></script>
   <script src="/static/events.js" defer></script>
+  <script src="/static/dispatch.js" defer></script>
 </head>
 <body>
   <header class="topbar">
@@ -20,6 +21,7 @@
       <button id="search-section-tab" class="active" role="tab" aria-selected="true" aria-controls="search-workspace">Tìm keyframes</button>
       <button id="traffic-section-tab" role="tab" aria-selected="false" aria-controls="traffic-workspace" tabindex="-1">Giao thông</button>
       <button id="events-section-tab" role="tab" aria-selected="false" aria-controls="events-workspace" tabindex="-1">Sự kiện &amp; evidence</button>
+      <button id="dispatch-section-tab" role="tab" aria-selected="false" aria-controls="dispatch-workspace" tabindex="-1">Phân bổ mô phỏng</button>
     </div>
     <div id="search-workspace" class="workspace" role="tabpanel" aria-labelledby="search-section-tab">
       <aside class="query-panel" aria-label="Điều kiện tìm kiếm">
@@ -83,6 +85,13 @@
       <div id="events-list" class="event-list" aria-live="polite" aria-busy="false"></div>
       <div class="timeline-pagination"><button id="events-prev" class="outline-button" type="button" disabled>← Trước</button><span id="events-page"></span><button id="events-next" class="outline-button" type="button" disabled>Tiếp →</button></div>
       <p class="hint">Màn hình chỉ đọc trạng thái review hiện có. Quyết định review được ghi riêng qua CLI với reviewer, lý do và revision.</p>
+    </section>
+    <section id="dispatch-workspace" role="tabpanel" aria-labelledby="dispatch-section-tab" hidden>
+      <div class="traffic-heading"><div><h2>Đề xuất phân bổ mô phỏng</h2><p id="dispatch-status" role="status">Đang kiểm tra báo cáo…</p></div><button id="dispatch-refresh" class="outline-button" type="button">Kiểm tra lại</button></div>
+      <p class="demo-notice">Đội, khu vực và thời gian di chuyển đều giả định. Màn hình chỉ đọc báo cáo chạy thử; không phát lệnh điều động cảnh sát.</p>
+      <div class="traffic-filters"><div><label for="dispatch-package">Kịch bản phân bổ</label><select id="dispatch-package"></select></div></div>
+      <p id="dispatch-error" class="error" role="alert" hidden></p>
+      <div id="dispatch-data" hidden><div id="dispatch-metrics" class="metric-grid"></div><p id="dispatch-summary" class="hint"></p><h3>Đề xuất đã xếp đội</h3><div id="dispatch-assignments" class="event-list"></div><h3>Yêu cầu chưa được phân bổ</h3><div id="dispatch-unmet" class="event-list"></div><p id="dispatch-snapshot" class="hint"></p></div>
     </section>
   </main>
   <dialog id="viewer" aria-labelledby="viewer-title">

@@ -20,6 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from PIL import Image, UnidentifiedImageError
 from starlette.concurrency import run_in_threadpool
 
+from app.cctv_dispatch import DispatchPackage, DispatchStore
 from app.cctv_events import EventStore
 from app.cctv_traffic import TrafficStore
 from pipeline.cctv.clip import ClipEncoder
@@ -229,6 +230,7 @@ def create_app(
     tracking_dir: Path | None = None,
     roi_preview_dir: Path | None = None,
     event_packages: dict[str, tuple[Path, Path]] | None = None,
+    dispatch_store: DispatchStore | None = None,
 ) -> FastAPI:
     """Build the CCTV demo using independent config; legacy app remains available."""
     runtime = Runtime(
@@ -318,6 +320,42 @@ def create_app(
         }
     )
 
+    dispatch_packages = {
+        "simulation": DispatchPackage(
+            ROOT / "outputs/demo-data/dispatch-simulation-v1",
+            ROOT / "configs/cctv.demands.simulation.json",
+        )
+    }
+    for name, event_name, output, demands in (
+        (
+            "events_empty",
+            "incidents",
+            "dispatch-events-empty-v1",
+            "configs/cctv.demands.events.json",
+        ),
+        (
+            "review_gate",
+            "demo",
+            "dispatch-review-gate-v1",
+            "outputs/demo-data-review/dispatch-event-request.json",
+        ),
+    ):
+        if event_name in events.packages:
+            dispatch_packages[name] = DispatchPackage(
+                ROOT / "outputs/demo-data" / output,
+                ROOT / demands,
+                *events.packages[event_name],
+            )
+    proposals = dispatch_store or DispatchStore(
+        Path(os.getenv("CCTV_MANIFEST", ROOT / "configs/cctv.demo.json")).absolute(),
+        Path(
+            os.getenv(
+                "CCTV_RESOURCE_CONFIG", ROOT / "configs/cctv.resources.simulation.json"
+            )
+        ).absolute(),
+        dispatch_packages,
+    )
+
     def event_sources() -> dict[str, dict]:
         if not runtime.ready:
             return {}
@@ -363,6 +401,7 @@ def create_app(
     app.state.cctv = runtime
     app.state.traffic = traffic
     app.state.events = events
+    app.state.dispatch = proposals
     app.mount(
         "/static", StaticFiles(directory=ROOT / "static/cctv"), name="cctv-static"
     )
@@ -490,6 +529,32 @@ def create_app(
             read_only=True,
             operational_ready=False,
         )
+
+    @app.get("/cctv/dispatch")
+    def dispatch_catalog():
+        require_ready()
+        return proposals.catalog(event_sources())
+
+    @app.get("/cctv/dispatch/{package_id}")
+    def dispatch_report(package_id: str):
+        require_ready()
+        if package_id not in proposals.packages:
+            raise HTTPException(404, "Không có gói phân bổ này.")
+        try:
+            return proposals.report(package_id, event_sources())
+        except (
+            OSError,
+            ValueError,
+            KeyError,
+            TypeError,
+            RuntimeError,
+            sqlite3.Error,
+        ) as exc:
+            LOG.warning("Dispatch package unavailable: %s", exc)
+            raise HTTPException(
+                503,
+                "Báo cáo phân bổ thiếu, lỗi hoặc đầu vào đã đổi; kiểm tra log và tạo báo cáo mới.",
+            ) from exc
 
     def require_traffic() -> None:
         require_ready()

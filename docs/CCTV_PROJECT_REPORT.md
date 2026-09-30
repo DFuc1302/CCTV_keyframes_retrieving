@@ -1,8 +1,9 @@
 # Báo cáo kỹ thuật đồ án CCTV — VGU Explore Computer Science
 
 Ngày lập: 2026-10-01. Phạm vi: baseline demo trên Windows 11 Native,
-PowerShell, RTX 4070 Laptop 8GB. Báo cáo phản ánh M0–M6.2 và công cụ bàn giao
-T6.3; chưa nghiệm thu chạy máy thứ hai hoặc chất lượng nhận diện trên nhãn thật.
+PowerShell, RTX 4070 Laptop 8GB. Báo cáo phản ánh M0–T7.2; benchmark latency
+T6.2 là phép đo lịch sử. Chưa nghiệm thu chạy máy thứ hai hoặc chất lượng
+nhận diện trên nhãn thật.
 
 ## 1. Bài toán và kết quả hiện có
 
@@ -14,7 +15,8 @@ viết lại: giữ keyframe naming, CSV map, SQLite frames và ID FAISS.
 Đã chạy được text/image retrieval, video seek, detector xe, tracking clip,
 traffic windows, đóng gói evidence và review bằng CLI, rule nghi sự cố,
 solver nhân lực mô phỏng, event evaluator và phép đo HTTP latency.
-Chưa có multimodal fusion OCR/ASR cho CCTV, event/dispatch UI hoặc hệ thống
+Event/dispatch UI chỉ đọc đã có ở T7.1–T7.2.
+Chưa có multimodal fusion OCR/ASR cho CCTV hoặc hệ thống
 nhận diện tai nạn đã kiểm định. Các kết quả này là nền demo có thể kiểm thử.
 
 ## 2. Dữ liệu và phạm vi thực nghiệm
@@ -148,3 +150,22 @@ Demo đã có tab Sự kiện & evidence chỉ đọc: event v1/v2, review state
 case synthetic riêng và mở native-PTS evidence trong video. Core suite đạt
 194 tests. Dispatch UI và việc ghi review qua UI vẫn còn mở; latency trong
 mục 4 là phép đo code T6.2, chưa đo lại code API T7.1.
+## Bổ sung T7.2 — phân bổ mô phỏng trên UI
+
+T7.2 nối báo cáo T5.2 vào GET API/tab Phân bổ mô phỏng. Màn hình hiển thị
+roster, nhân lực sẵn sàng, cap, dự phòng, đội đã xếp và lý do unmet. Adapter
+đối chiếu checksum/config/event/journal với inputs hiện tại và kiểm tra khả
+thi; request không chạy solver hoặc nạp thêm model. Journal/config đổi sẽ
+làm báo cáo cũ chưa khả dụng, cần output mới từ CLI.
+
+Bộ Windows hiện đạt 202 core tests, pip check, compile, CUDA FP16/NMS.
+HTTP demo thật có ba gói: simulation 1 assignment/2 unmet, events_empty 0/0,
+review_gate 0/1. Simulation xếp 2 người và giữ dự phòng 2; review gate còn
+`needs_more_evidence` revision 3, không được phân bổ. 68 artifacts/configs
+giữ SHA/mtime sau HTTP; browser kiểm tra ba kịch bản và Home/End, console
+không lỗi. Chi tiết: `CCTV_DISPATCH_UI.md` và output verification local.
+
+Đây vẫn là nguồn lực/tình huống mô phỏng. Không ghi review hoặc phát lệnh điều
+động; chưa nghiệm thu chất lượng phát hiện sự kiện hoặc phân bổ thực tế.
+T7.3 tiếp theo kiểm thử demo đầu-cuối và đo lại runtime của code mới; phép đo
+T6.2 vẫn chỉ đại diện phiên bản code tại thời điểm đo.

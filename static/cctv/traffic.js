@@ -13,7 +13,7 @@ function trafficNumber(value) {
 }
 function trafficTime(row) { return `${timeLabel(row.window.start_sec)} – ${timeLabel(row.window.end_sec)}`; }
 function selectSection(key) {
-  for (const name of ["search", "traffic", "events"]) {
+  for (const name of ["search", "traffic", "events", "dispatch"]) {
     const active = name === key;
     $(name + "-section-tab").classList.toggle("active", active);
     $(name + "-section-tab").setAttribute("aria-selected", String(active));
@@ -21,7 +21,7 @@ function selectSection(key) {
     $(name + "-workspace").hidden = !active;
   }
 }
-const sectionNames = ["search", "traffic", "events"];
+const sectionNames = ["search", "traffic", "events", "dispatch"];
 for (const name of sectionNames) {
   $(name + "-section-tab").addEventListener("click", () => selectSection(name));
   $(name + "-section-tab").addEventListener("keydown", event => {

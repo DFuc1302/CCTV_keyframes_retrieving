@@ -35,9 +35,9 @@ Không suy số tuần thực tế đã làm hoặc phần trăm hoàn thành t�
 | M2: retrieval và demo API/UI | Hoàn tất chức năng | CLIP 768D, FAISS, SQLite read-only, text/image, video seek, readiness thật |
 | M3: xe, tracking, congestion | Baseline demo có | T3.1–T3.5 chạy thử, ROI/timeline đã có trên API/UI; review ROI, hiệu chỉnh và benchmark còn mở |
 | M4: tình huống bất thường/nghi tai nạn | T4.1–T4.2 có baseline CLI | Evidence/review và move-then-stop rule chạy thử; chưa có nhãn độc lập, calibration hoặc nhận diện tai nạn |
-| M5: gợi ý phân bổ nhân lực | T5.1–T5.2 có baseline mô phỏng | Schema và solver bounded exact có assignments/unmet reasons; giữ review gate, chưa có vị trí/nguồn lực thật hoặc dispatch UI |
+| M5: gợi ý phân bổ nhân lực | T5.1–T5.2 có baseline mô phỏng | Schema và solver bounded exact có assignments/unmet reasons; T7.2 bổ sung UI chỉ đọc, chưa có vị trí/nguồn lực thật |
 | M6: đánh giá và bàn giao | T6.1–T6.3 có công cụ/tài liệu | Event evaluator, frozen HTTP latency, báo cáo và package bàn giao đã có; nhãn thật và chạy máy thứ hai còn mở |
-| M7: tích hợp demo sự kiện/điều phối | T7.1 event UI chỉ đọc có | Backend CLI nối UI evidence/review; dispatch UI T7.2 còn mở |
+| M7: tích hợp demo sự kiện/điều phối | T7.1–T7.2 UI chỉ đọc có | Event/evidence và phân bổ mô phỏng đã nối UI; T7.3 nghiệm thu đầu-cuối/đo runtime mới còn mở |
 
 Sau hai bản sửa launcher (encoding PowerShell và cổng bận), core suite đã chạy
 lại bằng Windows PowerShell 5.1: **47 tests đạt**, runtime CUDA FP16/NMS đạt.
@@ -126,6 +126,15 @@ Browser mở evidence đúng 30,037/35,996 giây, giữ review revision 3; raw,
 event/journal và upstream artifacts giữ hash/mtime. Bằng chứng:
 `outputs/demo-data-review/events-api-verification.json`.
 
+Sau T7.2: **202 core tests đạt**, pip check, compile và CUDA FP16/NMS đạt.
+API/UI chỉ đọc ba báo cáo mô phỏng: fixture 1 assignment/2 unmet; event rỗng
+0/0; demo review gate 0/1, `needs_more_evidence` revision 3. Kiểm tra hiện tại
+nguồn/config/journal, cap/reserve và khả thi; snapshot stale trả unavailable,
+không chạy solver hoặc nạp model khác. HTTP kiểm tra 68 artifacts/configs giữ
+hash/mtime; browser ba kịch bản, Home/End và console không lỗi. Xem
+`CCTV_DISPATCH_UI.md` và `outputs/demo-data-review/dispatch-ui-verification.json`.
+Benchmark T6.2 vẫn là lịch sử; T7.3 cần đo lại vào output mới với code hiện tại.
+
 ## Task tiếp theo và các bước có thể commit riêng
 
 **T3.1–T3.5 baseline đã hoàn tất trong phạm vi được ghi; ROI thật vẫn chưa
@@ -138,8 +147,8 @@ recording grouping vẫn chưa xác nhận.
 T6.3 đã có gói bàn giao/báo cáo và checklist. Bước nghiệm thu tiếp theo:
 chạy trên máy thứ hai theo `CCTV_HANDOVER.md`, lưu commit/log/kết quả thực;
 review ROI và tạo nhãn độc lập vẫn còn mở. T7.1 đã có UI event/evidence chỉ
-đọc; task repo tiếp theo T7.2 — hiển thị phân bổ mô phỏng và lý do unmet
-trên UI.** Xem `CCTV_TRAFFIC.md` để
+đọc; T7.2 đã nối phân bổ mô phỏng lên UI. Task repo tiếp theo T7.3 —
+kiểm thử demo đầu-cuối và đo runtime với code hiện tại/output mới.** Xem `CCTV_TRAFFIC.md` để
 kiểm tra ROI readiness. Tracking cần frame liên tiếp và PTS thật; detections
 keyframes 2 FPS hiện tại chưa chứng minh tracking hoặc lưu lượng hoạt động tốt.
 Chưa sửa model/index CLIP hiện có. Tạo schema/output độc lập cho detections,
@@ -162,7 +171,8 @@ không tự suy vị trí, thời gian tuyệt đối hoặc hiệu chuẩn tố
 | T6.2: runtime benchmark — đã có kỹ thuật | Frozen workload/input/model/index/code, 120 HTTP samples, P50/P95 và lỗi, case checkpoint; relevance/event quality thiếu nhãn |
 | T6.3: bàn giao — đã chuẩn bị | Báo cáo, exporter checksum/resume và quy trình rebuild/checklist; máy thứ hai NOT_RUN, benchmark nhãn thật vẫn cần thực hiện |
 | T7.1: event UI — đã có chỉ đọc | Event/review state, source guards, synthetic/empty/unavailable states và video evidence; không ghi review |
-| T7.2: phân bổ UI — tiếp theo | Đọc simulation report, cap/reserve, assignments/unmet reasons và provenance/review gates |
+| T7.2: phân bổ UI — đã có chỉ đọc | Đọc simulation report, cap/reserve, assignments/unmet reasons; cấu hình/journal đổi thì snapshot cũ không khả dụng |
+| T7.3: nghiệm thu demo — tiếp theo | Kiểm thử đầu-cuối search/traffic/event/dispatch và đo runtime mới sau tích hợp; không thay benchmark lịch sử |
 
 Mỗi task: code/module hoàn chỉnh → kiểm thử phù hợp và dữ liệu mẫu → tài liệu
 PowerShell → Conventional Commit → push. Chạy CLIP phục vụ và detector theo
