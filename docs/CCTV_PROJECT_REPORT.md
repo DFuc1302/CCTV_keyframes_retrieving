@@ -1,7 +1,7 @@
 # Báo cáo kỹ thuật đồ án CCTV — VGU Explore Computer Science
 
 Ngày lập: 2026-10-01. Phạm vi: baseline demo trên Windows 11 Native,
-PowerShell, RTX 4070 Laptop 8GB. Báo cáo phản ánh M0–T7.3; benchmark latency
+PowerShell, RTX 4070 Laptop 8GB. Báo cáo phản ánh M0–T8.1; benchmark latency
 T6.2 là phép đo lịch sử. Chưa nghiệm thu chạy máy thứ hai hoặc chất lượng
 nhận diện trên nhãn thật.
 
@@ -190,3 +190,21 @@ core tests, pip check/compile/CUDA FP16/NMS đạt.
 M7 đã đạt nghiệm thu kỹ thuật cục bộ; chất lượng retrieval/event, ROI và
 calibration, vị trí/nguồn lực thật, chạy trên máy thứ hai vẫn chưa nghiệm thu.
 Quy trình/lệnh đầy đủ: `CCTV_DEMO_ACCEPTANCE.md`.
+
+## Bổ sung T8.1 — chuẩn bị tư liệu review, chưa tạo ground truth
+
+Bundle pending đã có 36 JPEG sạch nguyên bản từ sáu khoảng `[30,40)`, sáu
+contact sheets với locator nguồn và sáu ROI overlays ở trang riêng.
+Không đọc predictions/journal để tạo ảnh; labeling page không có ROI hints,
+video sử dụng preview nguồn và offset PTS hiện có. Forms vẫn 0 reviewed/
+approved; groups unverified, splits unassigned. Không sửa config gốc.
+
+Windows core suite đạt 214 tests, pip check/compile/CUDA FP16/NMS đạt.
+Resume skip sáu interval, 55 bundle artifacts giữ SHA/mtime; 59 inputs được
+freeze. Browser tải đủ sheets, seek N001-V001 30,000 giây, readyState=4,
+console không lỗi; raw/upstream không đổi. Chi tiết:
+`CCTV_REVIEW_PREPARATION.md` và verification local dưới outputs.
+
+Các khoảng demo đã dùng chạy thử pipeline, không phải mẫu đại diện hoặc
+blind test mới. Ảnh sạch không chứng minh reviewer độc lập. Review/nhãn thật
+và recording groups phải do con người xác minh; chưa tính metrics thật.

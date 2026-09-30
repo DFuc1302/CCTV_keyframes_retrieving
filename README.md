@@ -26,6 +26,7 @@ videos -> manifest -> frames -> dedupe -> merge
 
 ## Start with the documentation
 
+- [CCTV pending review preparation](docs/CCTV_REVIEW_PREPARATION.md) — clean footage references, separate ROI drafts and pending independent annotation forms.
 - [CCTV demo acceptance](docs/CCTV_DEMO_ACCEPTANCE.md) — repeatable local HTTP integration checks and latency after event/dispatch UI integration.
 - [CCTV simulated dispatch UI](docs/CCTV_DISPATCH_UI.md) — read-only proposals, personnel/reserve limits and current review/input guards.
 - [CCTV event benchmark tools](docs/CCTV_BENCHMARK.md) — annotation/split validation, exact temporal-IoU matching and explicitly synthetic metric fixtures.

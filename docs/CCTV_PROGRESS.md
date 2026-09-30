@@ -38,6 +38,7 @@ Không suy số tuần thực tế đã làm hoặc phần trăm hoàn thành t�
 | M5: gợi ý phân bổ nhân lực | T5.1–T5.2 có baseline mô phỏng | Schema và solver bounded exact có assignments/unmet reasons; T7.2 bổ sung UI chỉ đọc, chưa có vị trí/nguồn lực thật |
 | M6: đánh giá và bàn giao | T6.1–T6.3 có công cụ/tài liệu | Event evaluator, frozen HTTP latency, báo cáo và package bàn giao đã có; nhãn thật và chạy máy thứ hai còn mở |
 | M7: tích hợp demo sự kiện/điều phối | T7.1–T7.3 đạt kỹ thuật cục bộ | Event/evidence, phân bổ mô phỏng, HTTP/browser smoke và runtime mới có; chưa nghiệm thu chất lượng hoặc máy thứ hai |
+| M8: chuẩn bị review/nhãn độc lập | T8.1 có tư liệu pending | 36 ảnh sạch, sáu sheets/ROI drafts và forms; chưa thực hiện review thật hoặc tạo ground truth |
 
 Sau hai bản sửa launcher (encoding PowerShell và cổng bận), core suite đã chạy
 lại bằng Windows PowerShell 5.1: **47 tests đạt**, runtime CUDA FP16/NMS đạt.
@@ -145,6 +146,16 @@ event evidence 35,996 giây, review gate và console không lỗi. Benchmark m�
 `CCTV_DEMO_ACCEPTANCE.md`; report local dưới `acceptance-t7-v2` và
 `runtime-benchmark-t7-v1`. Chất lượng, ROI/nhãn và máy thứ hai còn mở.
 
+Sau T8.1: **214 core tests đạt**, pip check/compile/CUDA FP16/NMS đạt.
+Bundle `review-preparation-v1` có sáu khoảng `[30,40)`, 36 JPEG nguyên bản,
+sáu contact sheets và sáu ROI overlays riêng. Trang labeling không có ROI
+draft/predictions, dùng video preview hiện có/source PTS; forms giữ pending,
+0 reviewed/approved, group unverified và split unassigned. Resume skip sáu
+interval, 55 artifacts giữ SHA/mtime, 59 input files được freeze. Browser
+tải sáu sheets, video seek 30,000 giây và console không lỗi; sáu raw cùng
+upstream không đổi. Bộ này không chứng minh blind review/tính đại diện.
+Xem `CCTV_REVIEW_PREPARATION.md`; notes/nhãn thật chưa được cung cấp.
+
 ## Task tiếp theo và các bước có thể commit riêng
 
 **T3.1–T3.5 baseline đã hoàn tất trong phạm vi được ghi; ROI thật vẫn chưa
@@ -158,8 +169,10 @@ T6.3 đã có gói bàn giao/báo cáo và checklist. Bước nghiệm thu tiế
 chạy trên máy thứ hai theo `CCTV_HANDOVER.md`, lưu commit/log/kết quả thực;
 review ROI và tạo nhãn độc lập vẫn còn mở. T7.1 đã có UI event/evidence chỉ
 đọc; T7.2 đã nối phân bổ mô phỏng lên UI và T7.3 nghiệm thu kỹ thuật cục bộ.
-Bước tiếp theo: chuẩn bị bộ mẫu hỗ trợ duyệt ROI/gán nhãn độc lập;
-không tự phê duyệt. Chạy máy thứ hai vẫn cần môi trường thứ hai thực tế.** Xem `CCTV_TRAFFIC.md` để
+T8.1 đã chuẩn bị bộ mẫu pending. Task kỹ thuật tiếp theo T8.2: thu nhận
+notes riêng từng reviewer và validate trước chuyển sang annotation cuối;
+không tự phê duyệt hoặc tạo nhãn thật. Chạy máy thứ hai vẫn cần môi trường
+thứ hai thực tế.** Xem `CCTV_TRAFFIC.md` để
 kiểm tra ROI readiness. Tracking cần frame liên tiếp và PTS thật; detections
 keyframes 2 FPS hiện tại chưa chứng minh tracking hoặc lưu lượng hoạt động tốt.
 Chưa sửa model/index CLIP hiện có. Tạo schema/output độc lập cho detections,
@@ -184,7 +197,8 @@ không tự suy vị trí, thời gian tuyệt đối hoặc hiệu chuẩn tố
 | T7.1: event UI — đã có chỉ đọc | Event/review state, source guards, synthetic/empty/unavailable states và video evidence; không ghi review |
 | T7.2: phân bổ UI — đã có chỉ đọc | Đọc simulation report, cap/reserve, assignments/unmet reasons; cấu hình/journal đổi thì snapshot cũ không khả dụng |
 | T7.3: nghiệm thu demo — đạt kỹ thuật cục bộ | HTTP/browser smoke và latency mới đã có; giữ benchmark lịch sử, chưa có nhãn thật/máy thứ hai |
-| Chuẩn bị đánh giá chất lượng — tiếp theo | Bộ mẫu ROI/annotation cho người dùng duyệt độc lập; không tự tạo ground truth hoặc duyệt ROI |
+| T8.1: chuẩn bị review — đã có | 36 ảnh sạch, sáu sheets/ROI drafts và forms pending; checkpoint/resume, không đọc predictions |
+| T8.2: notes/validation — tiếp theo | Notes riêng cho reviewer, kiểm tra scope/time/provenance và bất đồng trước annotation cuối; không tự sinh nhãn |
 
 Mỗi task: code/module hoàn chỉnh → kiểm thử phù hợp và dữ liệu mẫu → tài liệu
 PowerShell → Conventional Commit → push. Chạy CLIP phục vụ và detector theo
