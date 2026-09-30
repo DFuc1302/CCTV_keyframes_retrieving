@@ -84,6 +84,16 @@ class CCTVApiTests(unittest.TestCase):
         before = digest(self.fixture.output / "meta.db")
         client = self.client()
         self.assertEqual(client.get("/ready").status_code, 200)
+        benchmark = client.get("/ready").json()["benchmark_identity"]
+        self.assertEqual(
+            benchmark["index_state_sha256"],
+            digest(self.fixture.output / "index_state.json"),
+        )
+        self.assertEqual(benchmark["device"], "cpu")
+        self.assertEqual(
+            benchmark["session_id"],
+            client.get("/ready").json()["benchmark_identity"]["session_id"],
+        )
         result = client.get("/cctv/search", params={"query": "red traffic", "top_k": 2})
         self.assertEqual(result.status_code, 200)
         first = result.json()["results"][0]

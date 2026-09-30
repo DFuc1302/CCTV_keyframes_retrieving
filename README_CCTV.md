@@ -41,6 +41,10 @@ Annotation/split validator và event evaluator: [`docs/CCTV_BENCHMARK.md`](docs/
 Template CCTV giữ pending/unassigned và metrics=null; fixtures phép tính lưu
 riêng, chưa có benchmark chất lượng trên nhãn độc lập.
 
+Benchmark retrieval HTTP với input/config đóng băng, P50/P95, checkpoint và
+provenance: [`docs/CCTV_RUNTIME_BENCHMARK.md`](docs/CCTV_RUNTIME_BENCHMARK.md).
+Client không tải model thứ hai; latency kỹ thuật không thay thế nhãn relevance.
+
 Pipeline CCTV mới: `docs/CCTV_INGESTION.md`, dùng manifest độc lập và giữ map/keyframe legacy. Có demo tổng hợp khi chưa có dữ liệu thật.
 
 Dataset demo đã đăng ký: `D:\Project ExploreCS\Demo_Data`, gồm 6 video từ hai camera N001/N002. Manifest: `configs/cctv.demo.json`. Xem `docs/DEMO_DATA.md` để chạy extraction và biết giới hạn đánh giá.

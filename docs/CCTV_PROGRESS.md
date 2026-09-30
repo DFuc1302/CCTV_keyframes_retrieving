@@ -21,7 +21,7 @@ tiếp nối; trạng thái triển khai được cập nhật trong bảng dư�
 | Tuần 4: UI và vị trí video | Text/image query, xem MP4 tại timestamp, responsive | Đạt demo CCTV, không phải UI môn học |
 | Tuần 5: cải tiến có baseline so sánh | Chưa có thực nghiệm so sánh | Chưa đạt |
 | Tuần 6: benchmark có nhãn và split | Demo chưa có relevance/event labels độc lập | Chưa đạt |
-| Tuần 7: chất lượng/latency/phân tích lỗi | Có smoke tests, chưa có bảng benchmark | Chưa đạt |
+| Tuần 7: chất lượng/latency/phân tích lỗi | Có bảng latency HTTP T6.2; chất lượng thiếu nhãn | Đạt phép đo kỹ thuật cục bộ; chất lượng chưa nghiệm thu |
 | Tuần 8: máy thứ hai/báo cáo/bảo vệ | Hướng dẫn Windows đã có, chưa nghiệm thu máy thứ hai | Chưa đạt |
 
 Không suy số tuần thực tế đã làm hoặc phần trăm hoàn thành từ bảng này.
@@ -36,7 +36,7 @@ Không suy số tuần thực tế đã làm hoặc phần trăm hoàn thành t�
 | M3: xe, tracking, congestion | Baseline demo có | T3.1–T3.5 chạy thử, ROI/timeline đã có trên API/UI; review ROI, hiệu chỉnh và benchmark còn mở |
 | M4: tình huống bất thường/nghi tai nạn | T4.1–T4.2 có baseline CLI | Evidence/review và move-then-stop rule chạy thử; chưa có nhãn độc lập, calibration hoặc nhận diện tai nạn |
 | M5: gợi ý phân bổ nhân lực | T5.1–T5.2 có baseline mô phỏng | Schema và solver bounded exact có assignments/unmet reasons; giữ review gate, chưa có vị trí/nguồn lực thật hoặc dispatch UI |
-| M6: đánh giá và bàn giao | T6.1 có evaluator kỹ thuật | Annotation/split validation và event metrics đã có; nhãn thật, retrieval/latency benchmark và máy thứ hai còn mở |
+| M6: đánh giá và bàn giao | T6.1 evaluator và T6.2 latency có | Annotation/split validation, event metrics, frozen HTTP benchmark đã có; nhãn thật và bàn giao/máy thứ hai còn mở |
 
 Sau hai bản sửa launcher (encoding PowerShell và cổng bận), core suite đã chạy
 lại bằng Windows PowerShell 5.1: **47 tests đạt**, runtime CUDA FP16/NMS đạt.
@@ -95,6 +95,17 @@ không đổi nhãn/raw/upstream packages. Xem `CCTV_BENCHMARK.md`.
 Chi tiết và bằng chứng cục bộ: `CCTV_DEMO_UI.md`, `CCTV_RETRIEVAL.md`,
 `outputs/demo-data-review/ui-verification.json`.
 
+Sau T6.2: **182 core tests đạt**, CUDA FP16/NMS và pip check đạt. Workload
+12 query, top-k=12, 24 warmup/120 request đo qua HTTP; lỗi=0. Text P50/P95
+52,66/56,43 ms; image 127,91/141,34 ms. Client không tải model, server một
+CLIP FP16; allocator peak trong phiên model allocated=843,79 MiB,
+reserved=862 MiB, không phải tổng VRAM hoặc peak riêng request. Frozen input,
+index/model/code/session guards, case checkpoint và no-network completed
+resume đã kiểm tra. Raw 6 file, nhãn pending và upstream artifacts giữ nguyên
+hash/mtime. Chưa có relevance labels; quality metrics=null. Xem
+`CCTV_RUNTIME_BENCHMARK.md`, `outputs/demo-data/runtime-benchmark-v1/runtime_report.json`
+và `outputs/demo-data-review/runtime-benchmark-verification.json`.
+
 ## Task tiếp theo và các bước có thể commit riêng
 
 **T3.1–T3.5 baseline đã hoàn tất trong phạm vi được ghi; ROI thật vẫn chưa
@@ -102,8 +113,9 @@ duyệt và ngưỡng chưa hiệu chỉnh. T4.1 evidence/review đã hoàn tấ
 CLI. T4.2 có baseline rule/fixtures và evaluation protocol; chưa nghiệm thu
 nhận diện tai nạn. T5.1 đã có schema khu vực/nguồn lực mô phỏng.
 T5.2 đã có bộ gợi ý bounded exact bằng CLI, toàn bộ nguồn lực vẫn mô phỏng.
-T6.1 evaluator đã có; nhãn độc lập và recording grouping vẫn chưa xác nhận.
-Task tiếp theo: T6.2 — đóng băng benchmark inputs/config và đo retrieval/runtime latency.** Xem `CCTV_TRAFFIC.md` để
+T6.1 evaluator và T6.2 frozen runtime benchmark đã có; nhãn độc lập và
+recording grouping vẫn chưa xác nhận.
+Task tiếp theo: T6.3 — gói bàn giao/báo cáo và checklist chạy máy thứ hai.** Xem `CCTV_TRAFFIC.md` để
 kiểm tra ROI readiness. Tracking cần frame liên tiếp và PTS thật; detections
 keyframes 2 FPS hiện tại chưa chứng minh tracking hoặc lưu lượng hoạt động tốt.
 Chưa sửa model/index CLIP hiện có. Tạo schema/output độc lập cho detections,
@@ -123,7 +135,8 @@ không tự suy vị trí, thời gian tuyệt đối hoặc hiệu chuẩn tố
 | T5.1: nguồn lực — đã có cấu hình mô phỏng | Zone/team/skills/allowed zones, availability, directed travel, budget/reserve; schema và report/resume chạy thử, không gán vị trí thật |
 | T5.2: gợi ý phân bổ — đã có baseline CLI | Exact priority/travel/staff objective trong giới hạn 12 team/demand; cap/reserve/skills và unmet reasons, v1/v2 review gate, giữ flags demo; không điều động thực tế |
 | T6.1: annotation/splits/evaluator — đã có công cụ | Source-bound labels, review/coverage validation, group/camera leakage checks, exact weighted IoU matching, metrics và fixtures; chưa có nhãn thật để chấm chất lượng |
-| T6.2–T6.3: benchmark/bàn giao — tiếp theo | Đóng băng input/config, đo retrieval/runtime latency, benchmark với nhãn độc lập, báo cáo và chạy lại máy thứ hai |
+| T6.2: runtime benchmark — đã có kỹ thuật | Frozen workload/input/model/index/code, 120 HTTP samples, P50/P95 và lỗi, case checkpoint; relevance/event quality thiếu nhãn |
+| T6.3: bàn giao — tiếp theo | Gói bàn giao, báo cáo từ bằng chứng, checklist máy thứ hai; chạy máy thứ hai và benchmark nhãn thật vẫn cần thực hiện |
 
 Mỗi task: code/module hoàn chỉnh → kiểm thử phù hợp và dữ liệu mẫu → tài liệu
 PowerShell → Conventional Commit → push. Chạy CLIP phục vụ và detector theo

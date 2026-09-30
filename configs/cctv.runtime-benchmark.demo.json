@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "top_k": 12,
+  "warmup": 2,
+  "repeats": 10,
+  "cases": [
+    {"query_id": "TXT-01", "kind": "text", "text": "a road intersection with vehicles"},
+    {"query_id": "TXT-02", "kind": "text", "text": "motorcycles travelling on a busy street"},
+    {"query_id": "TXT-03", "kind": "text", "text": "cars waiting in traffic"},
+    {"query_id": "TXT-04", "kind": "text", "text": "pedestrians crossing the road"},
+    {"query_id": "TXT-05", "kind": "text", "text": "a street at night"},
+    {"query_id": "TXT-06", "kind": "text", "text": "an empty road"},
+    {"query_id": "IMG-01", "kind": "image", "frame": "N001-V001/001.jpg"},
+    {"query_id": "IMG-02", "kind": "image", "frame": "N001-V002/001.jpg"},
+    {"query_id": "IMG-03", "kind": "image", "frame": "N001-V003/001.jpg"},
+    {"query_id": "IMG-04", "kind": "image", "frame": "N002-V001/001.jpg"},
+    {"query_id": "IMG-05", "kind": "image", "frame": "N002-V002/001.jpg"},
+    {"query_id": "IMG-06", "kind": "image", "frame": "N002-V003/001.jpg"}
+  ]
+}

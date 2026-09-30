@@ -5,8 +5,11 @@ from __future__ import annotations
 import json
 import logging
 import os
+import platform
 import threading
+import uuid
 from contextlib import asynccontextmanager, closing
+from importlib.metadata import version
 from io import BytesIO
 from pathlib import Path
 
@@ -52,6 +55,7 @@ class Runtime:
         self.lock = threading.RLock()
         self.ready = False
         self.error: str | None = None
+        self.benchmark_identity: dict | None = None
 
     def start(self) -> None:
         """Validate index/model/assets, then run a real text-to-FAISS readiness probe."""
@@ -104,6 +108,31 @@ class Runtime:
             result = self.search.query(self.encoder.text("a road intersection"), 1)
             if not result or result[0]["video_id"] not in self.videos:
                 raise ValueError("Readiness query returned invalid locator")
+            self.benchmark_identity = {
+                "session_id": str(uuid.uuid4()),
+                "index_state_sha256": digest(self.index_dir / "index_state.json"),
+                "model_recipe": recipe,
+                "code_sha256": {
+                    name: digest(ROOT / name)
+                    for name in (
+                        "app/cctv.py",
+                        "pipeline/cctv/clip.py",
+                        "pipeline/cctv/search.py",
+                    )
+                },
+                "device": self.device,
+                "python": platform.python_version(),
+                "platform": platform.platform(),
+                "packages": {
+                    name: version(name)
+                    for name in ("torch", "transformers", "faiss-cpu", "fastapi")
+                },
+            }
+            if self.device == "cuda":
+                import torch
+
+                self.benchmark_identity["gpu"] = torch.cuda.get_device_name()
+                self.benchmark_identity["cuda_build"] = torch.version.cuda
             self.ready, self.error = True, None
         except Exception as exc:
             self.error = str(exc)
@@ -315,6 +344,8 @@ def create_app(
                 },
                 "traffic": traffic.status(),
                 "error": runtime.error,
+                "benchmark_identity": runtime.benchmark_identity,
+                "model_memory": runtime.encoder.memory() if runtime.encoder else {},
             },
             status_code=200 if runtime.ready else 503,
         )
