@@ -37,6 +37,7 @@ Không suy số tuần thực tế đã làm hoặc phần trăm hoàn thành t�
 | M4: tình huống bất thường/nghi tai nạn | T4.1–T4.2 có baseline CLI | Evidence/review và move-then-stop rule chạy thử; chưa có nhãn độc lập, calibration hoặc nhận diện tai nạn |
 | M5: gợi ý phân bổ nhân lực | T5.1–T5.2 có baseline mô phỏng | Schema và solver bounded exact có assignments/unmet reasons; giữ review gate, chưa có vị trí/nguồn lực thật hoặc dispatch UI |
 | M6: đánh giá và bàn giao | T6.1–T6.3 có công cụ/tài liệu | Event evaluator, frozen HTTP latency, báo cáo và package bàn giao đã có; nhãn thật và chạy máy thứ hai còn mở |
+| M7: tích hợp demo sự kiện/điều phối | T7.1 event UI chỉ đọc có | Backend CLI nối UI evidence/review; dispatch UI T7.2 còn mở |
 
 Sau hai bản sửa launcher (encoding PowerShell và cổng bận), core suite đã chạy
 lại bằng Windows PowerShell 5.1: **47 tests đạt**, runtime CUDA FP16/NMS đạt.
@@ -115,6 +116,16 @@ hai có 11 checks pending, trạng thái NOT_RUN; không sao chép raw/model ho�
 tự tạo kết quả PASS. Chất lượng retrieval/event vẫn chưa có nhãn độc lập.
 Xem `CCTV_HANDOVER.md` và `outputs/demo-data-review/handover-verification.json`.
 
+Sau T7.1: **194 core tests đạt**, CUDA FP16/NMS và pip check đạt. API event
+v1/v2 chỉ đọc, source/ledger/journal binding, live review state/revision và
+video evidence seek đã có. Tab phân biệt package unavailable, 0 candidates
+và case synthetic. Không ghi review, không nạp model thứ hai. Benchmark T6.2
+giữ như phép đo lịch sử, code mới cần output đo mới. Xem `CCTV_EVENTS_UI.md`;
+dispatch UI tiếp nối T7.2.
+Browser mở evidence đúng 30,037/35,996 giây, giữ review revision 3; raw,
+event/journal và upstream artifacts giữ hash/mtime. Bằng chứng:
+`outputs/demo-data-review/events-api-verification.json`.
+
 ## Task tiếp theo và các bước có thể commit riêng
 
 **T3.1–T3.5 baseline đã hoàn tất trong phạm vi được ghi; ROI thật vẫn chưa
@@ -126,7 +137,9 @@ T6.1 evaluator và T6.2 frozen runtime benchmark đã có; nhãn độc lập v�
 recording grouping vẫn chưa xác nhận.
 T6.3 đã có gói bàn giao/báo cáo và checklist. Bước nghiệm thu tiếp theo:
 chạy trên máy thứ hai theo `CCTV_HANDOVER.md`, lưu commit/log/kết quả thực;
-review ROI và tạo nhãn độc lập vẫn còn mở.** Xem `CCTV_TRAFFIC.md` để
+review ROI và tạo nhãn độc lập vẫn còn mở. T7.1 đã có UI event/evidence chỉ
+đọc; task repo tiếp theo T7.2 — hiển thị phân bổ mô phỏng và lý do unmet
+trên UI.** Xem `CCTV_TRAFFIC.md` để
 kiểm tra ROI readiness. Tracking cần frame liên tiếp và PTS thật; detections
 keyframes 2 FPS hiện tại chưa chứng minh tracking hoặc lưu lượng hoạt động tốt.
 Chưa sửa model/index CLIP hiện có. Tạo schema/output độc lập cho detections,
@@ -148,6 +161,8 @@ không tự suy vị trí, thời gian tuyệt đối hoặc hiệu chuẩn tố
 | T6.1: annotation/splits/evaluator — đã có công cụ | Source-bound labels, review/coverage validation, group/camera leakage checks, exact weighted IoU matching, metrics và fixtures; chưa có nhãn thật để chấm chất lượng |
 | T6.2: runtime benchmark — đã có kỹ thuật | Frozen workload/input/model/index/code, 120 HTTP samples, P50/P95 và lỗi, case checkpoint; relevance/event quality thiếu nhãn |
 | T6.3: bàn giao — đã chuẩn bị | Báo cáo, exporter checksum/resume và quy trình rebuild/checklist; máy thứ hai NOT_RUN, benchmark nhãn thật vẫn cần thực hiện |
+| T7.1: event UI — đã có chỉ đọc | Event/review state, source guards, synthetic/empty/unavailable states và video evidence; không ghi review |
+| T7.2: phân bổ UI — tiếp theo | Đọc simulation report, cap/reserve, assignments/unmet reasons và provenance/review gates |
 
 Mỗi task: code/module hoàn chỉnh → kiểm thử phù hợp và dữ liệu mẫu → tài liệu
 PowerShell → Conventional Commit → push. Chạy CLIP phục vụ và detector theo

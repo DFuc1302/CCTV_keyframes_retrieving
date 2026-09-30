@@ -13,7 +13,7 @@ function trafficNumber(value) {
 }
 function trafficTime(row) { return `${timeLabel(row.window.start_sec)} – ${timeLabel(row.window.end_sec)}`; }
 function selectSection(key) {
-  for (const name of ["search", "traffic"]) {
+  for (const name of ["search", "traffic", "events"]) {
     const active = name === key;
     $(name + "-section-tab").classList.toggle("active", active);
     $(name + "-section-tab").setAttribute("aria-selected", String(active));
@@ -21,11 +21,13 @@ function selectSection(key) {
     $(name + "-workspace").hidden = !active;
   }
 }
-for (const name of ["search", "traffic"]) {
+const sectionNames = ["search", "traffic", "events"];
+for (const name of sectionNames) {
   $(name + "-section-tab").addEventListener("click", () => selectSection(name));
   $(name + "-section-tab").addEventListener("keydown", event => {
-    if (["ArrowLeft", "ArrowRight"].includes(event.key)) {
-      event.preventDefault(); const next = name === "search" ? "traffic" : "search";
+    if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+      event.preventDefault(); const index = sectionNames.indexOf(name);
+      const next = event.key === "Home" ? sectionNames[0] : event.key === "End" ? sectionNames.at(-1) : sectionNames[(index + (event.key === "ArrowRight" ? 1 : -1) + sectionNames.length) % sectionNames.length];
       selectSection(next); $(next + "-section-tab").focus();
     }
   });

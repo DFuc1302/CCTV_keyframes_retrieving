@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import platform
+import sqlite3
 import threading
 import uuid
 from contextlib import asynccontextmanager, closing
@@ -19,6 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from PIL import Image, UnidentifiedImageError
 from starlette.concurrency import run_in_threadpool
 
+from app.cctv_events import EventStore
 from app.cctv_traffic import TrafficStore
 from pipeline.cctv.clip import ClipEncoder
 from pipeline.cctv.index import model_recipe
@@ -226,6 +228,7 @@ def create_app(
     traffic_dir: Path | None = None,
     tracking_dir: Path | None = None,
     roi_preview_dir: Path | None = None,
+    event_packages: dict[str, tuple[Path, Path]] | None = None,
 ) -> FastAPI:
     """Build the CCTV demo using independent config; legacy app remains available."""
     runtime = Runtime(
@@ -277,6 +280,58 @@ def create_app(
             )
         ).absolute(),
     )
+    events = EventStore(
+        event_packages
+        if event_packages is not None
+        else {
+            name: (
+                Path(
+                    os.getenv(event_env, ROOT / "outputs/demo-data" / event_default)
+                ).absolute(),
+                Path(
+                    os.getenv(review_env, ROOT / "outputs/demo-data" / review_default)
+                ).absolute(),
+            )
+            for name, event_env, event_default, review_env, review_default in (
+                (
+                    "incidents",
+                    "CCTV_INCIDENTS_DIR",
+                    "incidents-draft-v1",
+                    "CCTV_INCIDENT_REVIEWS_DIR",
+                    "incident-reviews-v1",
+                ),
+                (
+                    "congestion",
+                    "CCTV_EVENTS_DIR",
+                    "events-v1",
+                    "CCTV_EVENT_REVIEWS_DIR",
+                    "event-reviews-v1",
+                ),
+                (
+                    "demo",
+                    "CCTV_DEMO_EVENTS_DIR",
+                    "events-demo-v1",
+                    "CCTV_DEMO_REVIEWS_DIR",
+                    "events-demo-reviews-v1",
+                ),
+            )
+        }
+    )
+
+    def event_sources() -> dict[str, dict]:
+        if not runtime.ready:
+            return {}
+        with closing(runtime.search.connect()) as conn:
+            return {
+                vid: dict(
+                    camera_id=camera,
+                    sha256=runtime.videos[vid]["signature"]["sha256"],
+                    seek_offset_sec=runtime.videos[vid]["seek_offset_sec"],
+                )
+                for vid, camera in conn.execute(
+                    "SELECT DISTINCT video_id,camera_id FROM cctv_frames"
+                )
+            }
 
     def start_traffic() -> None:
         if not runtime.ready:
@@ -307,6 +362,7 @@ def create_app(
     app = FastAPI(title="CCTV Keyframe Retrieval", lifespan=lifespan)
     app.state.cctv = runtime
     app.state.traffic = traffic
+    app.state.events = events
     app.mount(
         "/static", StaticFiles(directory=ROOT / "static/cctv"), name="cctv-static"
     )
@@ -403,6 +459,37 @@ def create_app(
     @app.get("/cctv/traffic")
     def traffic_status():
         return traffic.status()
+
+    @app.get("/cctv/events")
+    def event_catalog():
+        require_ready()
+        return events.catalog(event_sources())
+
+    @app.get("/cctv/events/{package_id}")
+    def event_rows(
+        package_id: str,
+        offset: int = Query(0, ge=0),
+        limit: int = Query(20, ge=1, le=50),
+    ):
+        require_ready()
+        if package_id not in events.packages:
+            raise HTTPException(404, "Không có gói sự kiện này.")
+        try:
+            rows = events.rows(package_id, event_sources())
+        except (OSError, ValueError, KeyError, RuntimeError, sqlite3.Error) as exc:
+            LOG.warning("Event package unavailable: %s", exc)
+            raise HTTPException(
+                503, "Gói sự kiện hoặc journal chưa khả dụng; kiểm tra log server."
+            ) from exc
+        return dict(
+            package_id=package_id,
+            total=len(rows),
+            offset=offset,
+            limit=limit,
+            rows=rows[offset : offset + limit],
+            read_only=True,
+            operational_ready=False,
+        )
 
     def require_traffic() -> None:
         require_ready()

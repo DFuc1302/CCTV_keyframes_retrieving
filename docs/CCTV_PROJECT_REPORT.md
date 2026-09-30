@@ -141,3 +141,10 @@ và reviewed coverage; hiệu chỉnh ngưỡng trên development rồi đánh g
 Sau đó mới so sánh baseline, phân tích lỗi, bổ sung event/dispatch UI và
 thử camera/nguồn lực thực. Hiện chỉ nghiệm thu demo kỹ thuật, không nghiệm
 thu nhận diện tai nạn hoặc khuyến nghị điều phối hoạt động thực tế.
+
+## Cập nhật sau bàn giao: T7.1
+
+Demo đã có tab Sự kiện & evidence chỉ đọc: event v1/v2, review state/revision,
+case synthetic riêng và mở native-PTS evidence trong video. Core suite đạt
+194 tests. Dispatch UI và việc ghi review qua UI vẫn còn mở; latency trong
+mục 4 là phép đo code T6.2, chưa đo lại code API T7.1.

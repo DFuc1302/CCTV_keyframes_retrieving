@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="/static/style.css">
   <script src="/static/app.js" defer></script>
   <script src="/static/traffic.js" defer></script>
+  <script src="/static/events.js" defer></script>
 </head>
 <body>
   <header class="topbar">
@@ -18,6 +19,7 @@
     <div class="section-tabs" role="tablist" aria-label="Chức năng CCTV">
       <button id="search-section-tab" class="active" role="tab" aria-selected="true" aria-controls="search-workspace">Tìm keyframes</button>
       <button id="traffic-section-tab" role="tab" aria-selected="false" aria-controls="traffic-workspace" tabindex="-1">Giao thông</button>
+      <button id="events-section-tab" role="tab" aria-selected="false" aria-controls="events-workspace" tabindex="-1">Sự kiện &amp; evidence</button>
     </div>
     <div id="search-workspace" class="workspace" role="tabpanel" aria-labelledby="search-section-tab">
       <aside class="query-panel" aria-label="Điều kiện tìm kiếm">
@@ -71,6 +73,16 @@
         <div class="traffic-timeline"><h3>Timeline occupancy</h3><p class="hint">Độ cao cột là tỷ lệ diện tích ROI bị bbox che phủ (0–100%). Chọn cột để xem chỉ số tương ứng.</p><div id="traffic-bars" class="traffic-bars" aria-label="Các cửa sổ thống kê"></div><div class="timeline-pagination"><button id="traffic-prev" class="outline-button" type="button">← Trước</button><span id="traffic-page"></span><button id="traffic-next" class="outline-button" type="button">Tiếp →</button></div></div>
         <div class="traffic-table-wrap"><table class="traffic-table"><caption>Chỉ số từng cửa sổ · chọn thời gian để mở video</caption><thead><tr><th scope="col">Thời gian</th><th scope="col">Xe TB</th><th scope="col">Occupancy</th><th scope="col">Motion (px/s)</th><th scope="col">Coverage</th><th scope="col">Trạng thái thử nghiệm</th></tr></thead><tbody id="traffic-table-body"></tbody></table></div>
       </div>
+    </section>
+    <section id="events-workspace" role="tabpanel" aria-labelledby="events-section-tab" hidden>
+      <div class="traffic-heading"><div><h2>Sự kiện cần đối chiếu</h2><p id="events-status" role="status">Đang kiểm tra gói sự kiện…</p></div><button id="events-refresh" class="outline-button" type="button">Kiểm tra lại</button></div>
+      <p class="demo-notice">Ứng viên từ rule và case tổng hợp để chạy thử. Review trong demo không xác nhận tai nạn thực tế; ROI và ngưỡng vẫn chưa nghiệm thu.</p>
+      <div class="traffic-filters"><div><label for="events-package">Nguồn sự kiện</label><select id="events-package"></select></div></div>
+      <p id="events-error" class="error" role="alert" hidden></p>
+      <p id="events-empty" class="hint" hidden></p>
+      <div id="events-list" class="event-list" aria-live="polite" aria-busy="false"></div>
+      <div class="timeline-pagination"><button id="events-prev" class="outline-button" type="button" disabled>← Trước</button><span id="events-page"></span><button id="events-next" class="outline-button" type="button" disabled>Tiếp →</button></div>
+      <p class="hint">Màn hình chỉ đọc trạng thái review hiện có. Quyết định review được ghi riêng qua CLI với reviewer, lý do và revision.</p>
     </section>
   </main>
   <dialog id="viewer" aria-labelledby="viewer-title">
