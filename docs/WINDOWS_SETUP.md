@@ -30,7 +30,7 @@ Chạy bộ legacy đầy đủ để xem các lỗi kế thừa đã ghi nhận
 .\scripts\Test-Windows.ps1 -FullLegacy
 ```
 
-Mặc định script chạy kiểm tra runtime, 10 test độc lập cho UI/assets, bộ lọc video, tiền xử lý OCR và map timestamp, cùng 16 test CCTV manifest/ingestion bổ sung ở M1. `-FullLegacy` chạy discovery toàn bộ và trả lỗi nếu có test thất bại; không bỏ qua hoặc đổi nhãn các lỗi này.
+Mặc định script chạy kiểm tra runtime, 10 test độc lập cho UI/assets, bộ lọc video, tiền xử lý OCR và map timestamp, 16 test CCTV manifest/ingestion bổ sung ở M1 và 2 test hồi quy cho logged Python runner. `-FullLegacy` chạy discovery toàn bộ và trả lỗi nếu có test thất bại; không bỏ qua hoặc đổi nhãn các lỗi này.
 
 `Setup-Windows.ps1` tạo `.venv` nếu thiếu, dừng ngay khi lệnh lỗi và kiểm tra CUDA sau cài đặt. Có thể chạy lại để tiếp tục một lần cài bị gián đoạn. Lần đầu cần mạng để tải wheel; không tải trọng số CLIP/YOLO.
 
@@ -80,6 +80,18 @@ Kiểm tra thực hiện JPEG encode/decode, FAISS có ánh xạ ID, SQLite FTS5
 | Summary | Đường dẫn index cũ, kết quả combined không khớp fixture | Chuẩn hóa cấu hình summary và kiểm thử kết hợp |
 
 Hai test skipped cần Bash hoặc Redis Stack riêng. T0.2 xác minh runtime Windows; chưa chứng minh mọi chức năng legacy hoạt động và chưa nghiệm thu retrieval với CCTV thật.
+
+## Windows PowerShell 5.1 và stderr
+
+PowerShell 5.1 có thể chuyển stderr của Python thành `NativeCommandError` khi dùng `*>` cùng `$ErrorActionPreference = 'Stop'`. Cảnh báo deprecation từ Starlette từng làm script dừng trước khi nhận exit code của unittest.
+
+`scripts/run_python_logged.py` giờ chạy unittest bằng đúng interpreter `.venv`, ghi cả stdout/stderr trực tiếp vào log UTF-8 và giữ exit code của child process. Cảnh báo không bị ẩn; lỗi thật vẫn khiến `Test-Windows.ps1` thất bại.
+
+Đã xác minh trên Windows PowerShell 5.1.26100.9444: 28 test đạt; cảnh báo Starlette còn trong `outputs/tests/core-tests.txt`. Hai test mới kiểm tra stderr warning không tạo thất bại giả và traceback thật trả exit code 1.
+
+```powershell
+powershell.exe -NoProfile -File .\scripts\Test-Windows.ps1
+```
 
 ## Git workflow
 

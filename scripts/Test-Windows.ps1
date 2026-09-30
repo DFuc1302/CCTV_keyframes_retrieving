@@ -54,12 +54,16 @@ try {
         $testLog = Join-Path $testOutput 'legacy-tests.txt'
     } else {
         $testArguments = @('-m', 'unittest', '-v', 'test_ui_assets', 'test_folder_filter',
-            'test_n_top_ocr', 'test_align_official_keyframe_maps', 'test_cctv_manifest', 'test_cctv_ingestion')
+            'test_n_top_ocr', 'test_align_official_keyframe_maps', 'test_cctv_manifest',
+            'test_cctv_ingestion', 'test_python_logged')
         $testLog = Join-Path $testOutput 'core-tests.txt'
     }
-    & $venvPython @testArguments *> $testLog
+    # PS 5.1 converts redirected native stderr into NativeCommandError under Stop.
+    # Capture it inside Python; warnings remain in the log and real failures stay nonzero.
+    $loggedRunner = Join-Path $PSScriptRoot 'run_python_logged.py'
+    & $venvPython $loggedRunner --log $testLog -- @testArguments
     $testExitCode = $LASTEXITCODE
-    Get-Content -LiteralPath $testLog -Tail 18
+    Get-Content -LiteralPath $testLog -Encoding UTF8 -Tail 18
     if ($testExitCode -ne 0) { throw "Tests failed; see $testLog" }
 } finally {
     foreach ($name in $previousEnvironment.Keys) {
