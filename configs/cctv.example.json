@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "raw_root": "../raw",
+  "cameras": [
+    {"camera_id": "CAM_001", "name": "Camera demo", "zone": "ZONE_001"}
+  ],
+  "videos": []
+}
