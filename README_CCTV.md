@@ -13,6 +13,11 @@ Schema detections/tracks/traffic windows và ROI theo camera: `docs/CCTV_TRAFFIC
 Baseline phát hiện xe YOLO trên keyframes, checkpoint/resume và overlays:
 `docs/CCTV_DETECTION.md`.
 
+Tracking video gốc, PTS và segment resume: `docs/CCTV_TRACKING.md`.
+Chạy thử ROI nháp, traffic windows và congestion persistence bằng CPU:
+[`docs/CCTV_CONGESTION.md`](docs/CCTV_CONGESTION.md). ROI và ngưỡng demo chưa
+được nghiệm thu; dùng `--allow-draft` để chạy thử mà giữ trạng thái pending.
+
 Pipeline CCTV mới: `docs/CCTV_INGESTION.md`, dùng manifest độc lập và giữ map/keyframe legacy. Có demo tổng hợp khi chưa có dữ liệu thật.
 
 Dataset demo đã đăng ký: `D:\Project ExploreCS\Demo_Data`, gồm 6 video từ hai camera N001/N002. Manifest: `configs/cctv.demo.json`. Xem `docs/DEMO_DATA.md` để chạy extraction và biết giới hạn đánh giá.

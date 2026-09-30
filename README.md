@@ -26,6 +26,7 @@ videos -> manifest -> frames -> dedupe -> merge
 
 ## Start with the documentation
 
+- [CCTV traffic windows](docs/CCTV_CONGESTION.md) — draft ROI demo, CPU metrics, persistence and Windows commands.
 - [CCTV native video tracking](docs/CCTV_TRACKING.md) — ByteTrack baseline, native PTS, segment resume and Windows commands.
 - [Vietnamese university project handover](docs/KE_THUA_VA_PHAT_TRIEN_DO_AN.md) — setup, reuse boundaries, proposed scope and an eight-week development plan.
 - [Architecture](docs/ARCHITECTURE.md) — application and browser structure.
