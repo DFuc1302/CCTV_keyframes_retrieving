@@ -26,6 +26,7 @@ videos -> manifest -> frames -> dedupe -> merge
 
 ## Start with the documentation
 
+- [CCTV native video tracking](docs/CCTV_TRACKING.md) — ByteTrack baseline, native PTS, segment resume and Windows commands.
 - [Vietnamese university project handover](docs/KE_THUA_VA_PHAT_TRIEN_DO_AN.md) — setup, reuse boundaries, proposed scope and an eight-week development plan.
 - [Architecture](docs/ARCHITECTURE.md) — application and browser structure.
 - [Pipeline map](docs/PIPELINE_MAP.md) — stage inputs, outputs and contracts.

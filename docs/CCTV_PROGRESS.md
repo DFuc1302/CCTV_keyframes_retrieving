@@ -1,6 +1,7 @@
 # Đối chiếu kế hoạch và tiến độ CCTV
 
-Ngày đối chiếu: 2026-09-30. Mốc code: `55f06fa`, đã push `origin/main`.
+Ngày cập nhật: 2026-10-01. T3.3 tiếp nối detector tại `a12a612`;
+commit triển khai được ghi trong Git history.
 
 ## Cách đọc kế hoạch
 
@@ -8,7 +9,7 @@ Ngày đối chiếu: 2026-09-30. Mốc code: `55f06fa`, đã push `origin/main`
 Các yêu cầu môn học/OCR/ASR trong đó chưa phải checklist nghiệm thu CCTV.
 Định hướng CCTV của người dùng thay thế phạm vi bài giảng, giữ kiến trúc kế thừa.
 M0/M1/M2 đã được dùng trong tài liệu repo; M3–M6 và mã task dưới đây là kế hoạch
-tiếp nối được đề xuất trong lần đối chiếu này, chưa phải module đã triển khai.
+tiếp nối; trạng thái triển khai được cập nhật trong bảng dưới đây.
 
 ## Đối chiếu lộ trình gốc
 
@@ -32,7 +33,7 @@ Không suy số tuần thực tế đã làm hoặc phần trăm hoàn thành t�
 | M0: legacy và Windows runtime | Hoàn tất nền | `.venv`, CUDA FP16/NMS, requirements và kiểm kê; full legacy suite vẫn có vấn đề được ghi riêng |
 | M1: manifest và extraction | Hoàn tất demo | 6 video, 2 camera N001/N002, 7.232 frames; raw chỉ đọc, resume |
 | M2: retrieval và demo API/UI | Hoàn tất chức năng | CLIP 768D, FAISS, SQLite read-only, text/image, video seek, readiness thật |
-| M3: xe, tracking, congestion | Đang thực hiện | T3.1 schema/ROI và T3.2 detector baseline đã có; ROI chưa duyệt, tracking/congestion chưa chạy |
+| M3: xe, tracking, congestion | Đang thực hiện | T3.1 schema, T3.2 detector và T3.3 tracking clip baseline đã có; ROI chưa duyệt, congestion chưa chạy |
 | M4: tình huống bất thường/nghi tai nạn | Chưa bắt đầu | Quy tắc theo thời gian, evidence clips, review và nhãn độc lập |
 | M5: gợi ý phân bổ nhân lực | Chưa bắt đầu | Vị trí camera/khu vực, nguồn lực, ràng buộc và dữ liệu mô phỏng/được xác nhận |
 | M6: đánh giá và bàn giao | Chưa hoàn tất | Qrels/splits, benchmark retrieval/events, latency, báo cáo, máy thứ hai |
@@ -47,13 +48,17 @@ roi_ready=false, pending N001/N002 như dự kiến.
 Sau T3.2: **63 core tests đạt**, runtime CUDA FP16/NMS đạt. Detector đã xử lý đủ
 7.232 keyframes và resume skip đủ, không nạp model/không rewrite artifacts.
 Xem `CCTV_DETECTION.md`; chưa có benchmark detector hoặc sự kiện.
+Sau T3.3: **74 core tests đạt**, runtime CUDA FP16/NMS đạt. Tracking từ video
+gốc chạy 6 clip 10 giây, 1.501 frame/12 segment; join 120 timestamp keyframe
+cũ, resume skip đủ không nạp model và không rewrite 18 artifacts/state/log.
+Xem `CCTV_TRACKING.md`; chưa nghiệm thu tracking toàn video hoặc chất lượng ID.
 Chi tiết và bằng chứng cục bộ: `CCTV_DEMO_UI.md`, `CCTV_RETRIEVAL.md`,
 `outputs/demo-data-review/ui-verification.json`.
 
 ## Task tiếp theo và các bước có thể commit riêng
 
-**T3.1 schema/cấu hình và T3.2 detector baseline đã hoàn tất; ROI thật vẫn chưa
-duyệt. Task tiếp theo: T3.3 — tracking từ video gốc.** Xem `CCTV_TRAFFIC.md` để
+**T3.1–T3.3 baseline đã hoàn tất trong phạm vi được ghi; ROI thật vẫn chưa
+duyệt. Task tiếp theo: T3.4 — chỉ số giao thông và congestion.** Xem `CCTV_TRAFFIC.md` để
 kiểm tra ROI readiness. Tracking cần frame liên tiếp và PTS thật; detections
 keyframes 2 FPS hiện tại chưa chứng minh tracking hoặc lưu lượng hoạt động tốt.
 Chưa sửa model/index CLIP hiện có. Tạo schema/output độc lập cho detections,
@@ -65,7 +70,7 @@ không tự suy vị trí, thời gian tuyệt đối hoặc hiệu chuẩn tố
 | --- | --- |
 | T3.1: schema/ROI — đã có | Validate ROI và locator; kiểm thử cấu hình hợp lệ/lỗi; N001/N002 chưa duyệt |
 | T3.2: phát hiện xe — đã có | FP16, batch giới hạn, checkpoint và sáu previews; đủ 7.232 frames, resume/hash/VRAM đã kiểm tra |
-| T3.3: tracking | Track trên các frame liên tiếp lấy từ video gốc vào output riêng; giữ PTS thực, kiểm thử reset/gián đoạn; không lấy index keyframes 2 FPS làm bằng chứng tracking đủ tốt |
+| T3.3: tracking — đã có baseline clip | Frame liên tiếp/PTS từ video gốc, ID theo scope segment, checkpoint/replay, 12 previews; chưa có nhãn hoặc benchmark tracking |
 | T3.4: congestion | Occupancy/chuyển động ảnh theo cửa sổ thời gian, persistence; ngưỡng hiệu chỉnh theo camera với nhãn; không gọi pixel displacement là km/h |
 | T3.5: API/UI giao thông | Overlay xe/ROI, timeline và evidence; kiểm thử readiness và liên kết timestamp |
 | T4.1–T4.2: nghi sự cố | Event schema, evidence và human review; thử trên dữ liệu có nhãn sự cố, đo false alarms trước khi tuyên bố nhận diện tai nạn |

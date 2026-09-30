@@ -2,3 +2,6 @@
 -r windows-runtime.txt
 ultralytics>=8.3,<9
 imagehash>=4.3,<5
+# Windows wheels for native video PTS and ByteTrack linear assignment.
+av>=14,<17
+lap==0.5.12
