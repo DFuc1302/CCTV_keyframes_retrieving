@@ -33,6 +33,10 @@ Cấu hình khu vực/đội tuần tra mô phỏng: [`docs/CCTV_RESOURCES.md`](
 Validate budget nhân sự, reserve, kỹ năng, availability và chi phí có hướng;
 chưa gợi ý điều động hoặc xác nhận camera location thực tế.
 
+Bộ gợi ý phân bổ mô phỏng bằng CLI: [`docs/CCTV_DISPATCH.md`](docs/CCTV_DISPATCH.md).
+Kiểm tra review, kỹ năng, travel, cap/reserve và mỗi đội một lần; có unmet
+reasons, giữ nhãn mô phỏng và không phát lệnh điều động thực tế.
+
 Pipeline CCTV mới: `docs/CCTV_INGESTION.md`, dùng manifest độc lập và giữ map/keyframe legacy. Có demo tổng hợp khi chưa có dữ liệu thật.
 
 Dataset demo đã đăng ký: `D:\Project ExploreCS\Demo_Data`, gồm 6 video từ hai camera N001/N002. Manifest: `configs/cctv.demo.json`. Xem `docs/DEMO_DATA.md` để chạy extraction và biết giới hạn đánh giá.

@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "mode": "simulation",
+  "kind": "event_package",
+  "demands": []
+}

@@ -26,6 +26,7 @@ videos -> manifest -> frames -> dedupe -> merge
 
 ## Start with the documentation
 
+- [CCTV simulated allocation proposals](docs/CCTV_DISPATCH.md) — exact bounded solver, review-bound demands and unmet explanations; no real dispatch actions.
 - [CCTV simulated patrol resources](docs/CCTV_RESOURCES.md) — fictional zones/teams, personnel caps, reserves and directed travel constraints.
 - [CCTV temporal incident screening](docs/CCTV_INCIDENTS.md) — scoped move-then-stop rule, synthetic confounders and independent evaluation plan.
 - [CCTV event evidence/review](docs/CCTV_EVENTS.md) — immutable candidate packages, explicit synthetic demo and auditable review CLI.

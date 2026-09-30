@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "mode": "simulation",
+  "kind": "synthetic_fixture",
+  "demands": [
+    {"demand_id": "SIM-TRAFFIC-A", "camera_id": "N001", "min_officers": 2,
+     "required_skills": ["traffic_control"], "priority": 4,
+     "max_travel_sec": 180.0, "review_status": "confirmed"},
+    {"demand_id": "SIM-SCENE-B", "camera_id": "N002", "min_officers": 2,
+     "required_skills": ["scene_assessment"], "priority": 3,
+     "max_travel_sec": 180.0, "review_status": "confirmed"},
+    {"demand_id": "SIM-PENDING-B", "camera_id": "N002", "min_officers": 2,
+     "required_skills": ["scene_assessment"], "priority": 5,
+     "max_travel_sec": 180.0, "review_status": "pending_review"}
+  ]
+}
