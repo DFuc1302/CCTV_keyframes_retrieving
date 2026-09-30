@@ -6,6 +6,7 @@
   <title>CCTV · Tìm kiếm keyframes</title>
   <link rel="stylesheet" href="/static/style.css">
   <script src="/static/app.js" defer></script>
+  <script src="/static/traffic.js" defer></script>
 </head>
 <body>
   <header class="topbar">
@@ -14,7 +15,11 @@
   </header>
   <main>
     <div class="intro"><div><p class="eyebrow">TRA CỨU VIDEO GIAO THÔNG</p><h1>Tìm đúng khoảnh khắc.</h1><p class="intro-copy">Tìm cảnh bằng mô tả hoặc ảnh, rồi xem lại thời điểm tương ứng trong video.</p></div><div id="status" class="status" role="status">Đang kiểm tra dữ liệu…</div></div>
-    <div class="workspace">
+    <div class="section-tabs" role="tablist" aria-label="Chức năng CCTV">
+      <button id="search-section-tab" class="active" role="tab" aria-selected="true" aria-controls="search-workspace">Tìm keyframes</button>
+      <button id="traffic-section-tab" role="tab" aria-selected="false" aria-controls="traffic-workspace" tabindex="-1">Giao thông</button>
+    </div>
+    <div id="search-workspace" class="workspace" role="tabpanel" aria-labelledby="search-section-tab">
       <aside class="query-panel" aria-label="Điều kiện tìm kiếm">
         <h2>Tìm kiếm</h2>
         <div class="tabs" role="tablist" aria-label="Kiểu truy vấn">
@@ -48,6 +53,25 @@
         <div id="results" class="results-grid" aria-live="polite" aria-busy="false"></div>
       </section>
     </div>
+    <section id="traffic-workspace" role="tabpanel" aria-labelledby="traffic-section-tab" hidden>
+      <div class="traffic-heading"><div><h2>Giao thông theo thời gian</h2><p id="traffic-status" role="status">Đang kiểm tra thống kê…</p></div><button id="traffic-refresh" class="outline-button" type="button">Kiểm tra lại</button></div>
+      <p id="traffic-notice" class="demo-notice">ROI nháp và ngưỡng chưa hiệu chỉnh. Chỉ dùng chạy thử; chưa phải kết luận tắc đường.</p>
+      <p id="traffic-error" class="error" role="alert" hidden></p>
+      <div id="traffic-data" hidden>
+        <div class="traffic-filters"><div><label for="traffic-camera">Camera</label><select id="traffic-camera"></select></div><div><label for="traffic-video">Video</label><select id="traffic-video"></select></div><p id="traffic-range"></p></div>
+        <div class="traffic-layout">
+          <figure class="roi-panel"><img id="traffic-roi" alt="Vùng ROI tham chiếu" loading="lazy"><figcaption id="traffic-roi-caption"></figcaption><p class="hint">Ảnh tham chiếu tại một thời điểm cố định. Chọn cửa sổ trên timeline rồi xem video để đối chiếu.</p></figure>
+          <div class="traffic-measures"><h3 id="traffic-selected">Chọn cửa sổ</h3><div class="metric-grid">
+            <div><span>Số xe trung bình</span><strong id="metric-count">—</strong><small>Số bbox trong ROI</small></div>
+            <div><span>Occupancy</span><strong id="metric-occupancy">—</strong><small>Diện tích bbox / ROI</small></div>
+            <div><span>Chuyển động ảnh</span><strong id="metric-motion">—</strong><small>px/s · không phải km/h</small></div>
+            <div><span>Coverage</span><strong id="metric-coverage">—</strong><small>Thời gian có frame hợp lệ</small></div>
+          </div><p id="traffic-signal" class="signal-label"></p><p id="traffic-evidence" class="hint"></p><button id="traffic-view" class="primary" type="button" disabled>Xem cửa sổ trong video ↗</button></div>
+        </div>
+        <div class="traffic-timeline"><h3>Timeline occupancy</h3><p class="hint">Độ cao cột là tỷ lệ diện tích ROI bị bbox che phủ (0–100%). Chọn cột để xem chỉ số tương ứng.</p><div id="traffic-bars" class="traffic-bars" aria-label="Các cửa sổ thống kê"></div><div class="timeline-pagination"><button id="traffic-prev" class="outline-button" type="button">← Trước</button><span id="traffic-page"></span><button id="traffic-next" class="outline-button" type="button">Tiếp →</button></div></div>
+        <div class="traffic-table-wrap"><table class="traffic-table"><caption>Chỉ số từng cửa sổ · chọn thời gian để mở video</caption><thead><tr><th scope="col">Thời gian</th><th scope="col">Xe TB</th><th scope="col">Occupancy</th><th scope="col">Motion (px/s)</th><th scope="col">Coverage</th><th scope="col">Trạng thái thử nghiệm</th></tr></thead><tbody id="traffic-table-body"></tbody></table></div>
+      </div>
+    </section>
   </main>
   <dialog id="viewer" aria-labelledby="viewer-title">
     <div class="viewer-header"><div><h2 id="viewer-title">Xem video</h2><p id="viewer-meta"></p></div><button id="close-viewer" aria-label="Đóng video">✕</button></div>

@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from PIL import Image, UnidentifiedImageError
 from starlette.concurrency import run_in_threadpool
 
+from app.cctv_traffic import TrafficStore
 from pipeline.cctv.clip import ClipEncoder
 from pipeline.cctv.index import model_recipe
 from pipeline.cctv.ingest import digest
@@ -193,6 +194,9 @@ def create_app(
     preview_dir: Path | None = None,
     device: str | None = None,
     encoder_factory=ClipEncoder,
+    traffic_dir: Path | None = None,
+    tracking_dir: Path | None = None,
+    roi_preview_dir: Path | None = None,
 ) -> FastAPI:
     """Build the CCTV demo using independent config; legacy app remains available."""
     runtime = Runtime(
@@ -217,10 +221,55 @@ def create_app(
         device or os.getenv("CCTV_DEVICE", "cuda"),
         encoder_factory,
     )
+    traffic = TrafficStore(
+        (
+            traffic_dir
+            or Path(
+                os.getenv(
+                    "CCTV_TRAFFIC_DIR", ROOT / "outputs/demo-data/traffic-draft-v1"
+                )
+            )
+        ).absolute(),
+        (
+            tracking_dir
+            or Path(
+                os.getenv(
+                    "CCTV_TRACKING_DIR", ROOT / "outputs/demo-data/tracking-clips"
+                )
+            )
+        ).absolute(),
+        (
+            roi_preview_dir
+            or Path(
+                os.getenv(
+                    "CCTV_ROI_PREVIEW_DIR",
+                    ROOT / "outputs/demo-data/roi-draft-previews",
+                )
+            )
+        ).absolute(),
+    )
+
+    def start_traffic() -> None:
+        if not runtime.ready:
+            traffic.error = "Retrieval assets unavailable"
+            return
+        with closing(runtime.search.connect()) as conn:
+            sources = {
+                vid: {
+                    "camera_id": camera,
+                    "sha256": runtime.videos[vid]["signature"]["sha256"],
+                    "seek_offset_sec": runtime.videos[vid]["seek_offset_sec"],
+                }
+                for vid, camera in conn.execute(
+                    "SELECT DISTINCT video_id,camera_id FROM cctv_frames"
+                )
+            }
+        traffic.start(sources)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         await run_in_threadpool(runtime.start)
+        await run_in_threadpool(start_traffic)
         try:
             yield
         finally:
@@ -228,6 +277,7 @@ def create_app(
 
     app = FastAPI(title="CCTV Keyframe Retrieval", lifespan=lifespan)
     app.state.cctv = runtime
+    app.state.traffic = traffic
     app.mount(
         "/static", StaticFiles(directory=ROOT / "static/cctv"), name="cctv-static"
     )
@@ -261,7 +311,9 @@ def create_app(
                     "text": runtime.ready,
                     "image": runtime.ready,
                     "video": runtime.ready,
+                    "traffic": traffic.available(),
                 },
+                "traffic": traffic.status(),
                 "error": runtime.error,
             },
             status_code=200 if runtime.ready else 503,
@@ -316,5 +368,55 @@ def create_app(
         if video_id not in runtime.videos:
             raise HTTPException(404, "Không có video này.")
         return FileResponse(runtime.videos[video_id]["path"], media_type="video/mp4")
+
+    @app.get("/cctv/traffic")
+    def traffic_status():
+        return traffic.status()
+
+    def require_traffic() -> None:
+        require_ready()
+        if not traffic.available():
+            raise HTTPException(
+                503,
+                "Thống kê giao thông chưa khả dụng; kiểm tra output và khởi động lại demo.",
+            )
+
+    @app.get("/cctv/traffic/windows/{video_id}")
+    def traffic_windows(
+        video_id: str,
+        offset: int = Query(0, ge=0),
+        limit: int = Query(200, ge=1, le=500),
+    ):
+        require_traffic()
+        if video_id not in traffic.rows:
+            raise HTTPException(404, "Không có thống kê cho video này.")
+        rows = traffic.rows[video_id]
+        return {
+            "video": traffic.video_rows[video_id],
+            "total": len(rows),
+            "offset": offset,
+            "limit": limit,
+            "rows": rows[offset : offset + limit],
+            "demo_only": traffic.manifest["demo_only"],
+            "thresholds_calibrated": False,
+            "operational_ready": False,
+        }
+
+    @app.get("/cctv/traffic/roi/{video_id}")
+    def traffic_roi(video_id: str):
+        require_traffic()
+        if video_id not in traffic.images:
+            raise HTTPException(404, "Không có ảnh ROI này.")
+        path, checksum = traffic.images[video_id]
+        # Small immutable assets are rehashed before serving.
+        try:
+            if digest(path) != checksum:
+                raise ValueError("ROI checksum changed")
+        except (OSError, ValueError) as exc:
+            traffic.ready, traffic.error = False, str(exc)
+            raise HTTPException(
+                503, "Ảnh ROI đã thay đổi; kiểm tra pipeline và khởi động lại demo."
+            ) from exc
+        return FileResponse(path, media_type="image/png")
 
     return app
