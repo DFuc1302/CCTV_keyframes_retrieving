@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "mode": "independent",
+  "source_manifest_sha256": "f9bc18c0365d94045a599c4975ac6e29328e3e0002730061ab2295aa9a275432",
+  "camera_holdout": false,
+  "videos": [
+    {"video_id": "N001-V001", "recording_group_id": "DEMO-UNVERIFIED", "grouping_status": "unverified", "split": "unassigned"},
+    {"video_id": "N001-V002", "recording_group_id": "DEMO-UNVERIFIED", "grouping_status": "unverified", "split": "unassigned"},
+    {"video_id": "N001-V003", "recording_group_id": "DEMO-UNVERIFIED", "grouping_status": "unverified", "split": "unassigned"},
+    {"video_id": "N002-V001", "recording_group_id": "DEMO-UNVERIFIED", "grouping_status": "unverified", "split": "unassigned"},
+    {"video_id": "N002-V002", "recording_group_id": "DEMO-UNVERIFIED", "grouping_status": "unverified", "split": "unassigned"},
+    {"video_id": "N002-V003", "recording_group_id": "DEMO-UNVERIFIED", "grouping_status": "unverified", "split": "unassigned"}
+  ]
+}

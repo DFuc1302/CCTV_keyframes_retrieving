@@ -26,6 +26,7 @@ videos -> manifest -> frames -> dedupe -> merge
 
 ## Start with the documentation
 
+- [CCTV event benchmark tools](docs/CCTV_BENCHMARK.md) — annotation/split validation, exact temporal-IoU matching and explicitly synthetic metric fixtures.
 - [CCTV simulated allocation proposals](docs/CCTV_DISPATCH.md) — exact bounded solver, review-bound demands and unmet explanations; no real dispatch actions.
 - [CCTV simulated patrol resources](docs/CCTV_RESOURCES.md) — fictional zones/teams, personnel caps, reserves and directed travel constraints.
 - [CCTV temporal incident screening](docs/CCTV_INCIDENTS.md) — scoped move-then-stop rule, synthetic confounders and independent evaluation plan.

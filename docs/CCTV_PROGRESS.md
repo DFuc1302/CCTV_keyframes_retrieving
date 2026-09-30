@@ -36,7 +36,7 @@ Không suy số tuần thực tế đã làm hoặc phần trăm hoàn thành t�
 | M3: xe, tracking, congestion | Baseline demo có | T3.1–T3.5 chạy thử, ROI/timeline đã có trên API/UI; review ROI, hiệu chỉnh và benchmark còn mở |
 | M4: tình huống bất thường/nghi tai nạn | T4.1–T4.2 có baseline CLI | Evidence/review và move-then-stop rule chạy thử; chưa có nhãn độc lập, calibration hoặc nhận diện tai nạn |
 | M5: gợi ý phân bổ nhân lực | T5.1–T5.2 có baseline mô phỏng | Schema và solver bounded exact có assignments/unmet reasons; giữ review gate, chưa có vị trí/nguồn lực thật hoặc dispatch UI |
-| M6: đánh giá và bàn giao | Chưa hoàn tất | Qrels/splits, benchmark retrieval/events, latency, báo cáo, máy thứ hai |
+| M6: đánh giá và bàn giao | T6.1 có evaluator kỹ thuật | Annotation/split validation và event metrics đã có; nhãn thật, retrieval/latency benchmark và máy thứ hai còn mở |
 
 Sau hai bản sửa launcher (encoding PowerShell và cổng bận), core suite đã chạy
 lại bằng Windows PowerShell 5.1: **47 tests đạt**, runtime CUDA FP16/NMS đạt.
@@ -85,6 +85,13 @@ objective; cap, whole teams, skills, directed travel và mỗi team một lần 
 kiểm thử. Event package rỗng không tạo assignment; demo case needs_more_evidence
 được giữ lại, journal không sửa. Ba package resume giữ nguyên bytes/mtime,
 raw và upstream artifacts giữ nguyên. Xem `CCTV_DISPATCH.md`.
+Sau T6.1: **171 core tests đạt**, CUDA FP16/NMS đạt. Annotation validator,
+video/recording-group splits và camera holdout checks; max-total-IoU exact
+matching và sensitivity 0.1/0.3/0.5, TP/FP/FN/precision/recall/F1, reviewed
+camera-hours và confirmation-PTS delay đã có. Fixture riêng TP=1/FP=2/FN=1
+đối chiếu oracle. Sáu clip thật giữ pending/unassigned; CLI trả
+NOT_EVALUATED_NO_REVIEWED_INTERVALS, metrics=null. Resume giữ bytes/mtime,
+không đổi nhãn/raw/upstream packages. Xem `CCTV_BENCHMARK.md`.
 Chi tiết và bằng chứng cục bộ: `CCTV_DEMO_UI.md`, `CCTV_RETRIEVAL.md`,
 `outputs/demo-data-review/ui-verification.json`.
 
@@ -95,7 +102,8 @@ duyệt và ngưỡng chưa hiệu chỉnh. T4.1 evidence/review đã hoàn tấ
 CLI. T4.2 có baseline rule/fixtures và evaluation protocol; chưa nghiệm thu
 nhận diện tai nạn. T5.1 đã có schema khu vực/nguồn lực mô phỏng.
 T5.2 đã có bộ gợi ý bounded exact bằng CLI, toàn bộ nguồn lực vẫn mô phỏng.
-Task tiếp theo: T6.1 — annotation validator, split manifest và evaluator.** Xem `CCTV_TRAFFIC.md` để
+T6.1 evaluator đã có; nhãn độc lập và recording grouping vẫn chưa xác nhận.
+Task tiếp theo: T6.2 — đóng băng benchmark inputs/config và đo retrieval/runtime latency.** Xem `CCTV_TRAFFIC.md` để
 kiểm tra ROI readiness. Tracking cần frame liên tiếp và PTS thật; detections
 keyframes 2 FPS hiện tại chưa chứng minh tracking hoặc lưu lượng hoạt động tốt.
 Chưa sửa model/index CLIP hiện có. Tạo schema/output độc lập cho detections,
@@ -114,7 +122,8 @@ không tự suy vị trí, thời gian tuyệt đối hoặc hiệu chuẩn tố
 | T4.2: nghi sự cố — đã có baseline | Move-then-stop theo scoped tracks/PTS, schema v2, 10 fixtures và protocol nhãn/split/false alarms; benchmark thật và nhận diện tai nạn còn mở |
 | T5.1: nguồn lực — đã có cấu hình mô phỏng | Zone/team/skills/allowed zones, availability, directed travel, budget/reserve; schema và report/resume chạy thử, không gán vị trí thật |
 | T5.2: gợi ý phân bổ — đã có baseline CLI | Exact priority/travel/staff objective trong giới hạn 12 team/demand; cap/reserve/skills và unmet reasons, v1/v2 review gate, giữ flags demo; không điều động thực tế |
-| T6.1–T6.3: benchmark/bàn giao | Tạo nhãn và split song song từ M3; đánh giá cấu hình đóng băng, báo cáo và chạy lại máy thứ hai |
+| T6.1: annotation/splits/evaluator — đã có công cụ | Source-bound labels, review/coverage validation, group/camera leakage checks, exact weighted IoU matching, metrics và fixtures; chưa có nhãn thật để chấm chất lượng |
+| T6.2–T6.3: benchmark/bàn giao — tiếp theo | Đóng băng input/config, đo retrieval/runtime latency, benchmark với nhãn độc lập, báo cáo và chạy lại máy thứ hai |
 
 Mỗi task: code/module hoàn chỉnh → kiểm thử phù hợp và dữ liệu mẫu → tài liệu
 PowerShell → Conventional Commit → push. Chạy CLIP phục vụ và detector theo

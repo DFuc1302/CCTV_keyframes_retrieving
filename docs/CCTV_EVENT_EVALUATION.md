@@ -1,6 +1,8 @@
 # Kế hoạch đánh giá sự kiện độc lập
 
-Trạng thái: **protocol đề xuất, chưa có nhãn hoặc benchmark thật**. Fixture
+Trạng thái: **protocol đã có evaluator T6.1, chưa có nhãn hoặc benchmark thật**.
+Xem [`CCTV_BENCHMARK.md`](CCTV_BENCHMARK.md) để chạy validator, split và metrics.
+Fixture
 T4.2 kiểm tra logic code; reviewer journal là quyết định vận hành, không được
 tự dùng làm ground truth nếu người review chỉ xem những event rule đã tạo.
 
@@ -63,5 +65,6 @@ thời điểm phát/report khi triển khai evaluator; v2 hiện giữ evidence
 - Không tuyên bố nhận diện tai nạn hoặc gợi ý điều phối đã đạt chất lượng khi
   chỉ có smoke test/synthetic fixtures.
 
-Evaluator executable, annotation validator và split manifest là task T6.1
-sau khi có nguồn nhãn độc lập. Hiện không tạo nhãn giả cho footage demo.
+Evaluator executable, annotation validator và split manifest đã có trong
+T6.1; template demo giữ pending/unassigned. Đánh giá chất lượng thật cần nhãn
+độc lập; không tạo nhãn giả cho footage demo.

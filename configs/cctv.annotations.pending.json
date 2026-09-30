@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "mode": "independent",
+  "source_manifest_sha256": "f9bc18c0365d94045a599c4975ac6e29328e3e0002730061ab2295aa9a275432",
+  "intervals": [
+    {"camera_id": "N001", "video_id": "N001-V001", "start_sec": 30.0, "end_sec": 40.0,
+     "review_status": "pending", "reviewed_by": [], "reviewed_at": null, "blind_to_predictions": false, "events": []},
+    {"camera_id": "N001", "video_id": "N001-V002", "start_sec": 30.0, "end_sec": 40.0,
+     "review_status": "pending", "reviewed_by": [], "reviewed_at": null, "blind_to_predictions": false, "events": []},
+    {"camera_id": "N001", "video_id": "N001-V003", "start_sec": 30.0, "end_sec": 40.0,
+     "review_status": "pending", "reviewed_by": [], "reviewed_at": null, "blind_to_predictions": false, "events": []},
+    {"camera_id": "N002", "video_id": "N002-V001", "start_sec": 30.0, "end_sec": 40.0,
+     "review_status": "pending", "reviewed_by": [], "reviewed_at": null, "blind_to_predictions": false, "events": []},
+    {"camera_id": "N002", "video_id": "N002-V002", "start_sec": 30.0, "end_sec": 40.0,
+     "review_status": "pending", "reviewed_by": [], "reviewed_at": null, "blind_to_predictions": false, "events": []},
+    {"camera_id": "N002", "video_id": "N002-V003", "start_sec": 30.0, "end_sec": 40.0,
+     "review_status": "pending", "reviewed_by": [], "reviewed_at": null, "blind_to_predictions": false, "events": []}
+  ]
+}
