@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CCTV · Tìm kiếm keyframes</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Trang chủ CCTV"><span class="brand-icon" aria-hidden="true">◉</span> CCTV <span class="brand-sub">KEYFRAME RETRIEVAL</span></a>
+    <span class="course">VGU · Explore Computer Science</span>
+  </header>
+  <main>
+    <div class="intro"><div><p class="eyebrow">TRA CỨU VIDEO GIAO THÔNG</p><h1>Tìm đúng khoảnh khắc.</h1><p class="intro-copy">Tìm cảnh bằng mô tả hoặc ảnh, rồi xem lại thời điểm tương ứng trong video.</p></div><div id="status" class="status" role="status">Đang kiểm tra dữ liệu…</div></div>
+    <div class="workspace">
+      <aside class="query-panel" aria-label="Điều kiện tìm kiếm">
+        <h2>Tìm kiếm</h2>
+        <div class="tabs" role="tablist" aria-label="Kiểu truy vấn">
+          <button id="text-tab" class="tab active" role="tab" aria-selected="true" aria-controls="text-panel">Mô tả</button>
+          <button id="image-tab" class="tab" role="tab" aria-selected="false" aria-controls="image-panel" tabindex="-1">Ảnh mẫu</button>
+        </div>
+        <form id="search-form">
+          <div id="text-panel" role="tabpanel" aria-labelledby="text-tab">
+            <label for="query">Bạn đang tìm cảnh nào?</label>
+            <textarea id="query" maxlength="500" rows="5" placeholder="A busy road intersection at night with headlights"></textarea>
+            <p class="hint">Dùng mô tả tiếng Anh cho baseline CLIP hiện tại.</p>
+            <p class="small-label">THỬ MỘT MÔ TẢ</p>
+            <div class="examples"><button type="button" data-query="a busy road intersection at night with headlights">Giao thông ban đêm ↗</button><button type="button" data-query="motorbikes waiting at a traffic light during the day">Xe máy tại đèn giao thông ↗</button></div>
+          </div>
+          <div id="image-panel" role="tabpanel" aria-labelledby="image-tab" hidden>
+            <label for="image-file">Chọn ảnh tham chiếu</label>
+            <input id="image-file" type="file" accept="image/jpeg,image/png,image/webp">
+            <img id="query-image" alt="Ảnh tham chiếu đã chọn" hidden>
+            <p class="hint">JPEG, PNG hoặc WebP · tối đa 8 MiB và 16 megapixels. Ảnh truy vấn không được lưu.</p>
+          </div>
+          <div class="result-limit"><label for="top-k">Số kết quả</label><select id="top-k"><option value="6">6</option><option value="12" selected>12</option><option value="24">24</option></select></div>
+          <button id="submit" class="primary" type="submit" disabled>Tìm keyframes <span aria-hidden="true">→</span></button>
+        </form>
+        <div class="dataset-info"><span class="small-label">BỘ DỮ LIỆU DEMO</span><p id="dataset-count">Đang kiểm tra index</p><p class="hint">Kết quả là các cảnh có nội dung tương đồng. Chưa có kết luận nhận diện tai nạn hoặc tắc đường.</p></div>
+        <button id="refresh" type="button" class="refresh">Kiểm tra trạng thái</button>
+      </aside>
+      <section class="results-panel" aria-labelledby="results-heading">
+        <div class="results-header"><div><h2 id="results-heading">Keyframes</h2><p id="result-summary">Kết quả sẽ xuất hiện tại đây.</p></div><span class="sort-label">Theo độ tương đồng</span></div>
+        <p id="error" class="error" role="alert" hidden></p>
+        <div id="empty" class="empty"><span class="empty-icon" aria-hidden="true">⌕</span><h3>Bắt đầu từ một cảnh bạn muốn tìm</h3><p>Nhập mô tả hoặc chọn ảnh mẫu.<br>Mỗi kết quả dẫn đến camera và thời điểm trong video.</p></div>
+        <div id="results" class="results-grid" aria-live="polite" aria-busy="false"></div>
+      </section>
+    </div>
+  </main>
+  <dialog id="viewer" aria-labelledby="viewer-title">
+    <div class="viewer-header"><div><h2 id="viewer-title">Xem video</h2><p id="viewer-meta"></p></div><button id="close-viewer" aria-label="Đóng video">✕</button></div>
+    <video id="video" controls preload="metadata" playsinline></video>
+    <p id="video-error" class="error" role="alert" hidden>Không thể phát video. Thử đóng và mở lại kết quả.</p>
+    <p class="hint viewer-hint">Mốc thời gian tương đối trong video. Kiểm tra cảnh thực tế trước khi diễn giải sự kiện.</p>
+  </dialog>
+</body>
+</html>

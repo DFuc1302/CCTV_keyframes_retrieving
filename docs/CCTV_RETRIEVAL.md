@@ -34,7 +34,8 @@ quyền sở hữu output đã có file nhưng chưa có checkpoint của pipeli
 `pipeline/cctv/search.py` mở database bằng SQLite URI `mode=ro`, hỗ trợ text-to-image,
 image-to-image và kiểm tra stored vector. Kết quả gồm image_path, video nguồn,
 camera_id, timestamp tương đối và decoded frame_idx. Chưa có multimodal fusion
-hoặc nhận diện sự kiện; chưa kết nối giao diện FastAPI/readiness legacy.
+hoặc nhận diện sự kiện. Demo FastAPI riêng đã kết nối text/image/video, xem
+`CCTV_DEMO_UI.md`; composition/readiness legacy vẫn giữ nguyên.
 
 ## Chạy Windows
 
@@ -84,9 +85,9 @@ outputs/demo-data/search-index/
 ```
 
 Keyframes/maps được tham chiếu tới extraction output, không sao chép hoặc sửa.
-`retrieval_ready=true` là readiness cho CLI này; `serving_ready=false` cho đến khi
-hoàn tất bước chuẩn bị serving bundle và kiểm thử API riêng. Không dùng `/health`
-hoặc việc tạo index làm bằng chứng `/ready` đã đạt.
+`retrieval_ready=true` là readiness cho CLI này; `serving_ready=false` thuộc serving
+bundle legacy. API CCTV mới có `/ready` riêng, đã kiểm thử với index và MP4 previews
+theo `CCTV_DEMO_UI.md`. Không dùng `/health` hoặc việc tạo index làm bằng chứng `/ready` đã đạt.
 
 Chín test mới dùng RGB synthetic encoder, kiểm tra persistence/locator, resume không
 nạp model/không rewrite, interruption theo transaction, raw/output protection,
