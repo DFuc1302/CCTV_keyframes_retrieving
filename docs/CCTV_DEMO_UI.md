@@ -73,6 +73,11 @@ Không dùng reload hoặc nhiều workers trên GPU 8GB. Launcher bind localhos
 đổi execution policy hệ thống. Có thể cấu hình `$env:CCTV_INDEX_DIR`,
 `$env:CCTV_MODEL_CONFIG`, `$env:CCTV_PREVIEW_DIR` bằng đường dẫn tuyệt đối.
 
+Launcher dùng ký tự ASCII để Windows PowerShell 5.1 đọc đúng file UTF-8 không BOM.
+Nếu gặp lỗi `The string is missing the terminator` với bản cũ, cập nhật launcher;
+không cần thay execution policy. `test_powershell_scripts.py` kiểm tra trực tiếp
+file trên đĩa bằng parser Windows PowerShell, đã được thêm vào core suite.
+
 ## Nghiệm thu ngày 2026-09-30
 
 - Core suite: **45 tests đạt** trên Windows PowerShell 5.1; runtime CUDA FP16/NMS đạt.
