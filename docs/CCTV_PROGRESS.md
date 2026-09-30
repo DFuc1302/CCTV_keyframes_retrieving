@@ -37,9 +37,10 @@ Không suy số tuần thực tế đã làm hoặc phần trăm hoàn thành t�
 | M5: gợi ý phân bổ nhân lực | Chưa bắt đầu | Vị trí camera/khu vực, nguồn lực, ràng buộc và dữ liệu mô phỏng/được xác nhận |
 | M6: đánh giá và bàn giao | Chưa hoàn tất | Qrels/splits, benchmark retrieval/events, latency, báo cáo, máy thứ hai |
 
-45 core tests đã đạt trước bản sửa launcher; sau bản sửa, 3 tests liên quan đạt,
-gồm một regression test parser mới. Core suite hiện cấu hình 46 tests nhưng chưa
-chạy lại toàn bộ sau bản sửa. Không ghi 46/46 hoặc full legacy suite đạt.
+Sau hai bản sửa launcher (encoding PowerShell và cổng bận), core suite đã chạy
+lại bằng Windows PowerShell 5.1: **47 tests đạt**, runtime CUDA FP16/NMS đạt.
+Có regression tests parser trên đĩa và kiểm tra cổng bận trước inference.
+Kết quả này không đồng nghĩa full legacy suite đạt.
 Chi tiết và bằng chứng cục bộ: `CCTV_DEMO_UI.md`, `CCTV_RETRIEVAL.md`,
 `outputs/demo-data-review/ui-verification.json`.
 

@@ -3,6 +3,16 @@ $ErrorActionPreference = 'Stop'
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $venvPython = Join-Path $repositoryRoot '.venv\Scripts\python.exe'
 if (-not (Test-Path -LiteralPath $venvPython)) { throw 'Run scripts\Setup-Windows.ps1 first.' }
+# Check before loading CLIP. The server still handles a possible bind race later.
+$portProbe = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, $Port)
+$portProbe.Server.ExclusiveAddressUse = $true
+try {
+    $portProbe.Start()
+} catch [System.Net.Sockets.SocketException] {
+    throw "Cannot bind 127.0.0.1:$Port. If a demo is already running, open http://127.0.0.1:$Port or stop its server first. To choose another port, use -Port 8081. CLIP was not loaded."
+} finally {
+    $portProbe.Stop()
+}
 $previousDevice = [Environment]::GetEnvironmentVariable('CCTV_DEVICE', 'Process')
 Push-Location $repositoryRoot
 try {

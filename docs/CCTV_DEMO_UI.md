@@ -77,6 +77,14 @@ Launcher dùng ký tự ASCII để Windows PowerShell 5.1 đọc đúng file UT
 Nếu gặp lỗi `The string is missing the terminator` với bản cũ, cập nhật launcher;
 không cần thay execution policy. `test_powershell_scripts.py` kiểm tra trực tiếp
 file trên đĩa bằng parser Windows PowerShell, đã được thêm vào core suite.
+Launcher cũng kiểm tra khả năng bind cổng trước khi nạp CLIP. Nếu cổng đang bận,
+mở demo đã chạy hoặc dừng server của nó bằng Ctrl+C; có thể chọn `-Port 8081` nếu
+thực sự cần instance khác. Không tự dừng process chưa xác minh hoặc chạy nhiều
+instance model trên GPU 8GB.
+
+Sau bản sửa kiểm tra cổng, core suite Windows PowerShell 5.1 đã chạy lại:
+**47 tests đạt**, cùng kiểm tra runtime CUDA FP16/NMS. Hai regression tests
+launcher kiểm tra parser từ file trên đĩa và cổng thật đang bị chiếm trước inference.
 
 ## Nghiệm thu ngày 2026-09-30
 
