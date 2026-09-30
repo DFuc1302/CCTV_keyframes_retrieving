@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "raw_root": "../../Demo_Data",
+  "cameras": [
+    {"camera_id": "N001", "name": "Camera N001"},
+    {"camera_id": "N002", "name": "Camera N002"}
+  ],
+  "videos": [
+    {"video_id": "N001-V001", "camera_id": "N001", "path": "N001-V001.mov"},
+    {"video_id": "N001-V002", "camera_id": "N001", "path": "N001-V002.mov"},
+    {"video_id": "N001-V003", "camera_id": "N001", "path": "N001-V003.mov"},
+    {"video_id": "N002-V001", "camera_id": "N002", "path": "N002-V001.mov"},
+    {"video_id": "N002-V002", "camera_id": "N002", "path": "N002-V002.mov"},
+    {"video_id": "N002-V003", "camera_id": "N002", "path": "N002-V003.mov"}
+  ]
+}
