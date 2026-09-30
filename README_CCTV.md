@@ -45,6 +45,10 @@ Benchmark retrieval HTTP với input/config đóng băng, P50/P95, checkpoint v�
 provenance: [`docs/CCTV_RUNTIME_BENCHMARK.md`](docs/CCTV_RUNTIME_BENCHMARK.md).
 Client không tải model thứ hai; latency kỹ thuật không thay thế nhãn relevance.
 
+Báo cáo kỹ thuật: [`docs/CCTV_PROJECT_REPORT.md`](docs/CCTV_PROJECT_REPORT.md).
+Gói evidence và quy trình tái lập máy thứ hai:
+[`docs/CCTV_HANDOVER.md`](docs/CCTV_HANDOVER.md). Máy thứ hai chưa nghiệm thu.
+
 Pipeline CCTV mới: `docs/CCTV_INGESTION.md`, dùng manifest độc lập và giữ map/keyframe legacy. Có demo tổng hợp khi chưa có dữ liệu thật.
 
 Dataset demo đã đăng ký: `D:\Project ExploreCS\Demo_Data`, gồm 6 video từ hai camera N001/N002. Manifest: `configs/cctv.demo.json`. Xem `docs/DEMO_DATA.md` để chạy extraction và biết giới hạn đánh giá.
