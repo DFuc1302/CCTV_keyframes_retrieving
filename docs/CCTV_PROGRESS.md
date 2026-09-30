@@ -34,7 +34,7 @@ Không suy số tuần thực tế đã làm hoặc phần trăm hoàn thành t�
 | M1: manifest và extraction | Hoàn tất demo | 6 video, 2 camera N001/N002, 7.232 frames; raw chỉ đọc, resume |
 | M2: retrieval và demo API/UI | Hoàn tất chức năng | CLIP 768D, FAISS, SQLite read-only, text/image, video seek, readiness thật |
 | M3: xe, tracking, congestion | Baseline demo có | T3.1–T3.5 chạy thử, ROI/timeline đã có trên API/UI; review ROI, hiệu chỉnh và benchmark còn mở |
-| M4: tình huống bất thường/nghi tai nạn | T4.1 có nền evidence/review | Package ứng viên và CLI review đã có; T4.2 quy tắc nghi sự cố và nhãn độc lập còn mở |
+| M4: tình huống bất thường/nghi tai nạn | T4.1–T4.2 có baseline CLI | Evidence/review và move-then-stop rule chạy thử; chưa có nhãn độc lập, calibration hoặc nhận diện tai nạn |
 | M5: gợi ý phân bổ nhân lực | Chưa bắt đầu | Vị trí camera/khu vực, nguồn lực, ràng buộc và dữ liệu mô phỏng/được xác nhận |
 | M6: đánh giá và bàn giao | Chưa hoàn tất | Qrels/splits, benchmark retrieval/events, latency, báo cáo, máy thứ hai |
 
@@ -66,6 +66,12 @@ chiếu frame thật N001-V001 751/30.037 giây và 900/35.996 giây. CLI review
 kiểm thử ba revision trong journal demo, giữ scope demo và flags gốc.
 Evidence/schema/hash, checkpoint/resume, bảo vệ input, CAS, reopen và audit
 chain đã kiểm thử. Chưa có nhận diện tai nạn hoặc event UI. Xem `CCTV_EVENTS.md`.
+Sau T4.2: **128 core tests đạt**, CUDA FP16/NMS đạt. Move-then-stop screening
+chạy CPU trên 6 clip/1.501 frame, tạo 0 ứng viên và resume giữ nguyên output.
+10 quỹ đạo tổng hợp đạt kỳ vọng rule, gồm chờ đèn đỏ cũng tạo ứng viên để
+minh họa false alarm. Event v2 giữ scope track/segment và evidence/PTS; review
+v1/v2 tương thích, raw và mọi upstream publications giữ nguyên. Xem
+`CCTV_INCIDENTS.md`, kế hoạch nhãn/split/metrics trong `CCTV_EVENT_EVALUATION.md`.
 Chi tiết và bằng chứng cục bộ: `CCTV_DEMO_UI.md`, `CCTV_RETRIEVAL.md`,
 `outputs/demo-data-review/ui-verification.json`.
 
@@ -73,7 +79,8 @@ Chi tiết và bằng chứng cục bộ: `CCTV_DEMO_UI.md`, `CCTV_RETRIEVAL.md`
 
 **T3.1–T3.5 baseline đã hoàn tất trong phạm vi được ghi; ROI thật vẫn chưa
 duyệt và ngưỡng chưa hiệu chỉnh. T4.1 evidence/review đã hoàn tất trong phạm vi
-CLI. Task tiếp theo: T4.2 — quy tắc nghi sự cố, fixtures và kế hoạch đánh giá.** Xem `CCTV_TRAFFIC.md` để
+CLI. T4.2 có baseline rule/fixtures và evaluation protocol; chưa nghiệm thu
+nhận diện tai nạn. Task tiếp theo: T5.1 — schema khu vực/nguồn lực mô phỏng.** Xem `CCTV_TRAFFIC.md` để
 kiểm tra ROI readiness. Tracking cần frame liên tiếp và PTS thật; detections
 keyframes 2 FPS hiện tại chưa chứng minh tracking hoặc lưu lượng hoạt động tốt.
 Chưa sửa model/index CLIP hiện có. Tạo schema/output độc lập cho detections,
@@ -89,7 +96,7 @@ không tự suy vị trí, thời gian tuyệt đối hoặc hiệu chuẩn tố
 | T3.4: congestion — đã có baseline demo | Count/union occupancy, pixel motion/PTS, cửa sổ có coverage và persistence; draft mode rõ ràng, ROI review và hiệu chỉnh ngưỡng bằng nhãn còn mở |
 | T3.5: API/UI giao thông — đã có baseline | ROI tham chiếu, chỉ số, timeline và mở evidence video; traffic readiness riêng và provenance/hash guards; chưa có overlay tracking video trực tiếp |
 | T4.1: event evidence/review — đã có nền CLI | Schema ứng viên/demo, frame/PTS thật, package immutable, video checkpoint, journal review riêng và CAS; 0 ứng viên dữ liệu hiện có, 1 case tổng hợp để test |
-| T4.2: nghi sự cố — tiếp theo | Mở rộng schema/rules theo thời gian, fixtures positive/negative; thử trên dữ liệu có nhãn độc lập và đo false alarms trước khi tuyên bố nhận diện tai nạn |
+| T4.2: nghi sự cố — đã có baseline | Move-then-stop theo scoped tracks/PTS, schema v2, 10 fixtures và protocol nhãn/split/false alarms; benchmark thật và nhận diện tai nạn còn mở |
 | T5.1–T5.2: nguồn lực | Cấu hình khu vực/đội tuần tra và bộ gợi ý có lý do; kiểm thử ngân sách, năng lực và ràng buộc bằng dữ liệu mô phỏng rõ nhãn |
 | T6.1–T6.3: benchmark/bàn giao | Tạo nhãn và split song song từ M3; đánh giá cấu hình đóng băng, báo cáo và chạy lại máy thứ hai |
 

@@ -16,12 +16,24 @@ from pipeline.cctv.events import (
     Event,
     canonical,
     checksum,
-    load_events,
     protect_output,
     read_json,
 )
+from pipeline.cctv.events import (
+    load_events as load_v1_events,
+)
 from pipeline.cctv.ingest import digest, output_lease, reject_link, save_json
 from pipeline.cctv.traffic import Contract
+
+
+def load_events(folder: Path):
+    """Dispatch versioned packages while preserving all sealed v1 publications."""
+    report = read_json(folder / "event_manifest.json")
+    if report.get("pipeline") == "cctv-incidents-v1":
+        from pipeline.cctv.incidents import load_incidents
+
+        return load_incidents(folder)
+    return load_v1_events(folder)
 
 
 class Review(Contract):

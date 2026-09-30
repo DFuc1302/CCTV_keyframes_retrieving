@@ -26,6 +26,7 @@ videos -> manifest -> frames -> dedupe -> merge
 
 ## Start with the documentation
 
+- [CCTV temporal incident screening](docs/CCTV_INCIDENTS.md) — scoped move-then-stop rule, synthetic confounders and independent evaluation plan.
 - [CCTV event evidence/review](docs/CCTV_EVENTS.md) — immutable candidate packages, explicit synthetic demo and auditable review CLI.
 - [CCTV traffic API/UI](docs/CCTV_TRAFFIC_UI.md) — camera/video metrics, ROI reference images and evidence timeline.
 - [CCTV traffic windows](docs/CCTV_CONGESTION.md) — draft ROI demo, CPU metrics, persistence and Windows commands.

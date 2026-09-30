@@ -56,7 +56,8 @@ Không sửa/xóa reviews để “reset”; dùng package/journal demo mới.
 
 Chưa thêm event queue vào UI; tab Giao thông và retrieval tiếp tục sử dụng
 output cũ. Schema hiện chỉ nhận `congestion_candidate` và `demo_case`;
-schema nghi tai nạn cần được mở rộng và kiểm thử ở T4.2 cùng evidence phù hợp.
+T4.2 bổ sung schema v2 `suspected_road_incident` và rule move-then-stop trong
+[`CCTV_INCIDENTS.md`](CCTV_INCIDENTS.md); chưa có schema/chẩn đoán tai nạn.
 
 ## PowerShell: chạy và kiểm thử
 
@@ -127,6 +128,6 @@ git commit -m 'feat: add CCTV event evidence and auditable review workflow'
 git push origin main
 ```
 
-Tiếp theo T4.2: quy tắc tình huống bất thường theo thời gian, schema bổ sung,
-fixtures positive/negative và evaluation plan. Dữ liệu thật cần nhãn độc lập
-trước khi báo cáo precision/recall hoặc gọi kết quả là phát hiện tai nạn.
+T4.2 đã có baseline theo thời gian và fixtures, xem `CCTV_INCIDENTS.md`.
+Dữ liệu thật vẫn cần nhãn độc lập trước khi báo cáo precision/recall hoặc
+gọi kết quả là phát hiện tai nạn.

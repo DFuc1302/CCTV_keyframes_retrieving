@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "moving_min_body_lengths_per_sec": 0.3,
+  "stationary_max_body_lengths_per_sec": 0.04,
+  "moving_duration_sec": 1.0,
+  "stationary_duration_sec": 2.0,
+  "max_gap_sec": 0.5,
+  "confidence_min": 0.4,
+  "box_area_min": 0.0002,
+  "max_box_scale_ratio": 1.5
+}
