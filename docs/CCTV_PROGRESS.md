@@ -32,7 +32,7 @@ Không suy số tuần thực tế đã làm hoặc phần trăm hoàn thành t�
 | M0: legacy và Windows runtime | Hoàn tất nền | `.venv`, CUDA FP16/NMS, requirements và kiểm kê; full legacy suite vẫn có vấn đề được ghi riêng |
 | M1: manifest và extraction | Hoàn tất demo | 6 video, 2 camera N001/N002, 7.232 frames; raw chỉ đọc, resume |
 | M2: retrieval và demo API/UI | Hoàn tất chức năng | CLIP 768D, FAISS, SQLite read-only, text/image, video seek, readiness thật |
-| M3: xe, tracking, congestion | Chưa bắt đầu | ROI đường, detections, tracks, thống kê theo cửa sổ thời gian và nhãn congestion |
+| M3: xe, tracking, congestion | Đang thực hiện | T3.1 schema/ROI config đã có; ROI camera chưa duyệt, detector/tracking/congestion chưa chạy |
 | M4: tình huống bất thường/nghi tai nạn | Chưa bắt đầu | Quy tắc theo thời gian, evidence clips, review và nhãn độc lập |
 | M5: gợi ý phân bổ nhân lực | Chưa bắt đầu | Vị trí camera/khu vực, nguồn lực, ràng buộc và dữ liệu mô phỏng/được xác nhận |
 | M6: đánh giá và bàn giao | Chưa hoàn tất | Qrels/splits, benchmark retrieval/events, latency, báo cáo, máy thứ hai |
@@ -41,12 +41,17 @@ Sau hai bản sửa launcher (encoding PowerShell và cổng bận), core suite 
 lại bằng Windows PowerShell 5.1: **47 tests đạt**, runtime CUDA FP16/NMS đạt.
 Có regression tests parser trên đĩa và kiểm tra cổng bận trước inference.
 Kết quả này không đồng nghĩa full legacy suite đạt.
+Sau T3.1, core suite đã chạy lại: **55 tests đạt** (thêm 8 tests traffic),
+cùng runtime Windows CUDA FP16/NMS. CLI demo trả schema_valid=true,
+roi_ready=false, pending N001/N002 như dự kiến.
 Chi tiết và bằng chứng cục bộ: `CCTV_DEMO_UI.md`, `CCTV_RETRIEVAL.md`,
 `outputs/demo-data-review/ui-verification.json`.
 
 ## Task tiếp theo và các bước có thể commit riêng
 
-**Task tiếp theo: T3.1 — hợp đồng dữ liệu giao thông và cấu hình ROI theo camera.**
+**T3.1 đã hoàn tất phần schema và cấu hình; ROI thật vẫn chưa duyệt. Task tiếp
+theo: T3.2 — pipeline phát hiện xe baseline.** Xem `CCTV_TRAFFIC.md` để kiểm tra
+ROI readiness; detection baseline có thể chạy trước khi ROI được duyệt.
 Chưa sửa model/index CLIP hiện có. Tạo schema/output độc lập cho detections,
 tracks và traffic windows, giữ camera/video/timestamp/frame_idx để liên kết
 keyframe. ROI đường dùng tọa độ chuẩn hóa và cần duyệt trên ảnh từng camera;
@@ -54,7 +59,7 @@ không tự suy vị trí, thời gian tuyệt đối hoặc hiệu chuẩn tố
 
 | Task đề xuất | Kết quả nhỏ có thể kiểm thử và push |
 | --- | --- |
-| T3.1: schema/ROI | Validate ROI và locator; kiểm thử cấu hình hợp lệ/lỗi; đánh dấu ROI chưa duyệt |
+| T3.1: schema/ROI — đã có | Validate ROI và locator; kiểm thử cấu hình hợp lệ/lỗi; N001/N002 chưa duyệt |
 | T3.2: phát hiện xe | Pipeline inference streaming, FP16, batch nhỏ, model/checkpoint cố định; preview bounding boxes, resume và đo VRAM trên clip nhỏ |
 | T3.3: tracking | Track trên các frame liên tiếp lấy từ video gốc vào output riêng; giữ PTS thực, kiểm thử reset/gián đoạn; không lấy index keyframes 2 FPS làm bằng chứng tracking đủ tốt |
 | T3.4: congestion | Occupancy/chuyển động ảnh theo cửa sổ thời gian, persistence; ngưỡng hiệu chỉnh theo camera với nhãn; không gọi pixel displacement là km/h |

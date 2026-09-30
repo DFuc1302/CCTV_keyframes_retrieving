@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "cameras": [
+    {"camera_id": "N001", "status": "pending", "polygon": null},
+    {"camera_id": "N002", "status": "pending", "polygon": null}
+  ]
+}
