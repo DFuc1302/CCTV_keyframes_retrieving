@@ -54,7 +54,7 @@ try {
         $testLog = Join-Path $testOutput 'legacy-tests.txt'
     } else {
         $testArguments = @('-m', 'unittest', '-v', 'test_ui_assets', 'test_folder_filter',
-            'test_n_top_ocr', 'test_align_official_keyframe_maps')
+            'test_n_top_ocr', 'test_align_official_keyframe_maps', 'test_cctv_manifest', 'test_cctv_ingestion')
         $testLog = Join-Path $testOutput 'core-tests.txt'
     }
     & $venvPython @testArguments *> $testLog

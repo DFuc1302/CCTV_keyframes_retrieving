@@ -30,7 +30,7 @@ Chạy bộ legacy đầy đủ để xem các lỗi kế thừa đã ghi nhận
 .\scripts\Test-Windows.ps1 -FullLegacy
 ```
 
-Mặc định script chạy kiểm tra runtime và 10 test độc lập cho UI/assets, bộ lọc video, tiền xử lý OCR và map timestamp. `-FullLegacy` chạy discovery toàn bộ và trả lỗi nếu có test thất bại; không bỏ qua hoặc đổi nhãn các lỗi này.
+Mặc định script chạy kiểm tra runtime, 10 test độc lập cho UI/assets, bộ lọc video, tiền xử lý OCR và map timestamp, cùng 16 test CCTV manifest/ingestion bổ sung ở M1. `-FullLegacy` chạy discovery toàn bộ và trả lỗi nếu có test thất bại; không bỏ qua hoặc đổi nhãn các lỗi này.
 
 `Setup-Windows.ps1` tạo `.venv` nếu thiếu, dừng ngay khi lệnh lỗi và kiểm tra CUDA sau cài đặt. Có thể chạy lại để tiếp tục một lần cài bị gián đoạn. Lần đầu cần mạng để tải wheel; không tải trọng số CLIP/YOLO.
 
@@ -48,7 +48,7 @@ Kiểm tra thực hiện JPEG encode/decode, FAISS có ánh xạ ID, SQLite FTS5
 - `outputs/preflight/environment.json`: package, thiết bị và đường dẫn công cụ.
 - `outputs/preflight/runtime-checks.json`: kết quả kiểm tra thực thi.
 - `outputs/tests/legacy-tests.txt`: bộ test legacy không cần dataset thật.
-- `outputs/tests/core-tests.txt`: 10 test runtime Windows; tách log khỏi bộ discovery.
+- `outputs/tests/core-tests.txt`: bộ runtime/CCTV Windows; tách log khỏi bộ discovery.
 - Các paths của kiểm thử được đặt riêng dưới `outputs/tests`; môi trường được khôi phục sau khi chạy. Không dùng cấu hình writable của test để phục vụ CCTV thật.
 - Khi viết pipeline inference, bắt đầu batch nhỏ (ví dụ 1–4), đo VRAM rồi điều chỉnh. Phép toán GPU tổng hợp không chứng minh model CLIP/YOLO thực tế sẽ vừa VRAM.
 - T0.3 cần dataset mới hoặc bundle hợp lệ; không tự tạo dataset giả để tuyên bố baseline đã sẵn sàng.

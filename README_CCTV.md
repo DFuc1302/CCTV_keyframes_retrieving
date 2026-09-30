@@ -6,6 +6,8 @@ Project kế thừa hệ thống tìm kiếm video đa phương thức, mở r�
 
 Hướng dẫn runtime Windows: `docs/WINDOWS_SETUP.md`.
 
+Pipeline CCTV mới: `docs/CCTV_INGESTION.md`, dùng manifest độc lập và giữ map/keyframe legacy. Có demo tổng hợp khi chưa có dữ liệu thật.
+
 ```powershell
 Set-Location 'D:\Project ExploreCS\CCTV_keyframes_retrieving'
 .\scripts\Setup-Windows.ps1 -Vision
