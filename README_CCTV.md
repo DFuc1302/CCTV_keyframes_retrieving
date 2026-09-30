@@ -10,6 +10,8 @@ Pipeline CCTV mới: `docs/CCTV_INGESTION.md`, dùng manifest độc lập và g
 
 Dataset demo đã đăng ký: `D:\Project ExploreCS\Demo_Data`, gồm 6 video từ hai camera N001/N002. Manifest: `configs/cctv.demo.json`. Xem `docs/DEMO_DATA.md` để chạy extraction và biết giới hạn đánh giá.
 
+CLIP/FAISS/SQLite và CLI tìm kiếm text/image: `docs/CCTV_RETRIEVAL.md`. Pipeline giữ ID/schema legacy, dùng FP16 trên CUDA và checkpoint theo batch.
+
 ```powershell
 Set-Location 'D:\Project ExploreCS\CCTV_keyframes_retrieving'
 .\scripts\Setup-Windows.ps1 -Vision

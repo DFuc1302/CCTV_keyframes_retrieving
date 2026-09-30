@@ -46,7 +46,9 @@ Output JPEG nằm tại `outputs\demo-data\processed\keyframes\<video_id>`;
 map tại `map-keyframes\<video_id>.csv`, schema `n,pts_time,fps,frame_idx`.
 Checkpoint và log ở cùng processed root. Chỉ dùng cùng manifest/recipe để resume;
 đổi nội dung nguồn hoặc cấu hình camera cần output folder mới.
-Output hiện chưa có CLIP embeddings, FAISS hoặc SQLite serving index (`serving_ready=false`).
+Output extraction chưa có CLIP embeddings hoặc index. Stage tiếp theo tạo CLIP/FAISS/SQLite
+ở folder riêng `outputs/demo-data/search-index`; xem `CCTV_RETRIEVAL.md`.
+Serving API chưa nghiệm thu (`serving_ready=false`).
 Raw video, keyframes, ảnh mẫu và log đều không commit vào Git.
 
 ## Kết quả kiểm tra trên máy này

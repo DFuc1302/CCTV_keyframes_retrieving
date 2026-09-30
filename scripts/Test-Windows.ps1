@@ -55,7 +55,7 @@ try {
     } else {
         $testArguments = @('-m', 'unittest', '-v', 'test_ui_assets', 'test_folder_filter',
             'test_n_top_ocr', 'test_align_official_keyframe_maps', 'test_cctv_manifest',
-            'test_cctv_ingestion', 'test_python_logged')
+            'test_cctv_ingestion', 'test_cctv_index', 'test_python_logged')
         $testLog = Join-Path $testOutput 'core-tests.txt'
     }
     # PS 5.1 converts redirected native stderr into NativeCommandError under Stop.
