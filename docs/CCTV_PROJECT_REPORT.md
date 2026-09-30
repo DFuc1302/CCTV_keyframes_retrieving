@@ -1,7 +1,7 @@
 # Báo cáo kỹ thuật đồ án CCTV — VGU Explore Computer Science
 
 Ngày lập: 2026-10-01. Phạm vi: baseline demo trên Windows 11 Native,
-PowerShell, RTX 4070 Laptop 8GB. Báo cáo phản ánh M0–T7.2; benchmark latency
+PowerShell, RTX 4070 Laptop 8GB. Báo cáo phản ánh M0–T7.3; benchmark latency
 T6.2 là phép đo lịch sử. Chưa nghiệm thu chạy máy thứ hai hoặc chất lượng
 nhận diện trên nhãn thật.
 
@@ -167,5 +167,26 @@ không lỗi. Chi tiết: `CCTV_DISPATCH_UI.md` và output verification local.
 
 Đây vẫn là nguồn lực/tình huống mô phỏng. Không ghi review hoặc phát lệnh điều
 động; chưa nghiệm thu chất lượng phát hiện sự kiện hoặc phân bổ thực tế.
-T7.3 tiếp theo kiểm thử demo đầu-cuối và đo lại runtime của code mới; phép đo
+T7.3 kiểm thử demo đầu-cuối và đo lại runtime của code mới; phép đo
 T6.2 vẫn chỉ đại diện phiên bản code tại thời điểm đo.
+
+## Bổ sung T7.3 — nghiệm thu kỹ thuật demo cục bộ
+
+CLI nghiệm thu HTTP đã có, đọc metadata SQLite độc lập và kiểm tra UI assets,
+text/image, ảnh/video Range, traffic, event và review-bound dispatch.
+Report cuối `outputs/demo-data/acceptance-t7-v2/acceptance_report.json` kiểm
+tra raw/config/index/code/assets giữ SHA/mtime. Browser xác minh tìm kiếm
+trả 12 kết quả và mở video tại 488,014 giây, traffic 30,037 giây, event
+35,996 giây; video readyState=4, review gate 0 assignment/1 unmet, console
+không lỗi. Đây là checks chạy thử, không phải nhãn chất lượng.
+
+Benchmark mới `runtime-benchmark-t7-v1`: 24 warmup và 120 request đo, lỗi=0.
+Text P50/P95 49,76/53,78 ms; image 147,91/167,64 ms. Model-lifetime allocated
+peak 851,91 MiB, reserved 862 MiB. Cùng workload/model/index với T6.2 nhưng
+khác phiên đo; không kết luận tác động nhân quả của UI lên hiệu năng.
+Resume hoàn chỉnh giữ hai report/checkpoint SHA/mtime. Bộ Windows đạt 208
+core tests, pip check/compile/CUDA FP16/NMS đạt.
+
+M7 đã đạt nghiệm thu kỹ thuật cục bộ; chất lượng retrieval/event, ROI và
+calibration, vị trí/nguồn lực thật, chạy trên máy thứ hai vẫn chưa nghiệm thu.
+Quy trình/lệnh đầy đủ: `CCTV_DEMO_ACCEPTANCE.md`.

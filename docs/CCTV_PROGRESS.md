@@ -37,7 +37,7 @@ Không suy số tuần thực tế đã làm hoặc phần trăm hoàn thành t�
 | M4: tình huống bất thường/nghi tai nạn | T4.1–T4.2 có baseline CLI | Evidence/review và move-then-stop rule chạy thử; chưa có nhãn độc lập, calibration hoặc nhận diện tai nạn |
 | M5: gợi ý phân bổ nhân lực | T5.1–T5.2 có baseline mô phỏng | Schema và solver bounded exact có assignments/unmet reasons; T7.2 bổ sung UI chỉ đọc, chưa có vị trí/nguồn lực thật |
 | M6: đánh giá và bàn giao | T6.1–T6.3 có công cụ/tài liệu | Event evaluator, frozen HTTP latency, báo cáo và package bàn giao đã có; nhãn thật và chạy máy thứ hai còn mở |
-| M7: tích hợp demo sự kiện/điều phối | T7.1–T7.2 UI chỉ đọc có | Event/evidence và phân bổ mô phỏng đã nối UI; T7.3 nghiệm thu đầu-cuối/đo runtime mới còn mở |
+| M7: tích hợp demo sự kiện/điều phối | T7.1–T7.3 đạt kỹ thuật cục bộ | Event/evidence, phân bổ mô phỏng, HTTP/browser smoke và runtime mới có; chưa nghiệm thu chất lượng hoặc máy thứ hai |
 
 Sau hai bản sửa launcher (encoding PowerShell và cổng bận), core suite đã chạy
 lại bằng Windows PowerShell 5.1: **47 tests đạt**, runtime CUDA FP16/NMS đạt.
@@ -133,7 +133,17 @@ nguồn/config/journal, cap/reserve và khả thi; snapshot stale trả unavaila
 không chạy solver hoặc nạp model khác. HTTP kiểm tra 68 artifacts/configs giữ
 hash/mtime; browser ba kịch bản, Home/End và console không lỗi. Xem
 `CCTV_DISPATCH_UI.md` và `outputs/demo-data-review/dispatch-ui-verification.json`.
-Benchmark T6.2 vẫn là lịch sử; T7.3 cần đo lại vào output mới với code hiện tại.
+Benchmark T6.2 vẫn là lịch sử; T7.3 đo lại vào output mới với code hiện tại.
+
+Sau T7.3: **208 core tests đạt**, pip check, compile và CUDA FP16/NMS đạt.
+CLI `scripts/verify_cctv_demo.py` kiểm tra UI assets, text/image locator, ảnh,
+video Range, 30 windows, events và ba dispatch packages, không ghi review.
+Browser kiểm tra search video tại 488,014 giây, traffic evidence 30,037 giây,
+event evidence 35,996 giây, review gate và console không lỗi. Benchmark mới:
+120 request/24 warmup, lỗi=0; text P50/P95=49,76/53,78 ms, image
+147,91/167,64 ms. Hai report/state giữ hash/mtime khi resume. Xem
+`CCTV_DEMO_ACCEPTANCE.md`; report local dưới `acceptance-t7-v2` và
+`runtime-benchmark-t7-v1`. Chất lượng, ROI/nhãn và máy thứ hai còn mở.
 
 ## Task tiếp theo và các bước có thể commit riêng
 
@@ -147,8 +157,9 @@ recording grouping vẫn chưa xác nhận.
 T6.3 đã có gói bàn giao/báo cáo và checklist. Bước nghiệm thu tiếp theo:
 chạy trên máy thứ hai theo `CCTV_HANDOVER.md`, lưu commit/log/kết quả thực;
 review ROI và tạo nhãn độc lập vẫn còn mở. T7.1 đã có UI event/evidence chỉ
-đọc; T7.2 đã nối phân bổ mô phỏng lên UI. Task repo tiếp theo T7.3 —
-kiểm thử demo đầu-cuối và đo runtime với code hiện tại/output mới.** Xem `CCTV_TRAFFIC.md` để
+đọc; T7.2 đã nối phân bổ mô phỏng lên UI và T7.3 nghiệm thu kỹ thuật cục bộ.
+Bước tiếp theo: chuẩn bị bộ mẫu hỗ trợ duyệt ROI/gán nhãn độc lập;
+không tự phê duyệt. Chạy máy thứ hai vẫn cần môi trường thứ hai thực tế.** Xem `CCTV_TRAFFIC.md` để
 kiểm tra ROI readiness. Tracking cần frame liên tiếp và PTS thật; detections
 keyframes 2 FPS hiện tại chưa chứng minh tracking hoặc lưu lượng hoạt động tốt.
 Chưa sửa model/index CLIP hiện có. Tạo schema/output độc lập cho detections,
@@ -172,7 +183,8 @@ không tự suy vị trí, thời gian tuyệt đối hoặc hiệu chuẩn tố
 | T6.3: bàn giao — đã chuẩn bị | Báo cáo, exporter checksum/resume và quy trình rebuild/checklist; máy thứ hai NOT_RUN, benchmark nhãn thật vẫn cần thực hiện |
 | T7.1: event UI — đã có chỉ đọc | Event/review state, source guards, synthetic/empty/unavailable states và video evidence; không ghi review |
 | T7.2: phân bổ UI — đã có chỉ đọc | Đọc simulation report, cap/reserve, assignments/unmet reasons; cấu hình/journal đổi thì snapshot cũ không khả dụng |
-| T7.3: nghiệm thu demo — tiếp theo | Kiểm thử đầu-cuối search/traffic/event/dispatch và đo runtime mới sau tích hợp; không thay benchmark lịch sử |
+| T7.3: nghiệm thu demo — đạt kỹ thuật cục bộ | HTTP/browser smoke và latency mới đã có; giữ benchmark lịch sử, chưa có nhãn thật/máy thứ hai |
+| Chuẩn bị đánh giá chất lượng — tiếp theo | Bộ mẫu ROI/annotation cho người dùng duyệt độc lập; không tự tạo ground truth hoặc duyệt ROI |
 
 Mỗi task: code/module hoàn chỉnh → kiểm thử phù hợp và dữ liệu mẫu → tài liệu
 PowerShell → Conventional Commit → push. Chạy CLIP phục vụ và detector theo

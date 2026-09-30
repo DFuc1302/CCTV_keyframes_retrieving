@@ -116,3 +116,14 @@ artifacts không đổi. Báo cáo đầy đủ cục bộ:
 T6.2 hoàn tất công cụ và phép đo kỹ thuật cục bộ; chất lượng retrieval/event
 vẫn cần nhãn độc lập. T6.3 tiếp nối bằng gói bàn giao/báo cáo và checklist máy
 thứ hai; không được ghi đã nghiệm thu máy thứ hai khi chưa thực sự chạy.
+
+## T7.3 — phép đo mới sau tích hợp event/dispatch UI
+
+Report mới `outputs/demo-data/runtime-benchmark-t7-v1/runtime_report.json`
+gắn SHA app/index/model hiện tại; giữ nguyên report T6.2. 24 warmup và 120
+request đo không lỗi. Text P50/P95/mean=49,76/53,78/49,69 ms; image
+147,91/167,64/150,29 ms. Model-lifetime peak allocated=851,91 MiB,
+reserved=862 MiB. Resume giữ SHA/mtime hai JSON, không gửi HTTP mới.
+Core suite hiện đạt 208 tests; nghiệm thu HTTP/browser xem
+`CCTV_DEMO_ACCEPTANCE.md`. Đây là lần đo mô tả cục bộ; không kết luận
+regression hoặc cải thiện do UI khi điều kiện nhiệt/power/load chưa kiểm soát.

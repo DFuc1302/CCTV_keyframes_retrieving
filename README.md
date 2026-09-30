@@ -26,6 +26,7 @@ videos -> manifest -> frames -> dedupe -> merge
 
 ## Start with the documentation
 
+- [CCTV demo acceptance](docs/CCTV_DEMO_ACCEPTANCE.md) — repeatable local HTTP integration checks and latency after event/dispatch UI integration.
 - [CCTV simulated dispatch UI](docs/CCTV_DISPATCH_UI.md) — read-only proposals, personnel/reserve limits and current review/input guards.
 - [CCTV event benchmark tools](docs/CCTV_BENCHMARK.md) — annotation/split validation, exact temporal-IoU matching and explicitly synthetic metric fixtures.
 - [CCTV simulated allocation proposals](docs/CCTV_DISPATCH.md) — exact bounded solver, review-bound demands and unmet explanations; no real dispatch actions.
