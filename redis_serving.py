@@ -1,3 +1,6 @@
 """Backward-compatible entry point for Redis serving helpers."""
 
-from app.services.redis_serving import *  # noqa: F401,F403
+import sys
+from app.services import redis_serving as _implementation
+
+sys.modules[__name__] = _implementation

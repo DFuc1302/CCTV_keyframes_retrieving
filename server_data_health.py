@@ -1,3 +1,6 @@
 """Backward-compatible entry point for data health checks."""
 
-from app.services.data_health import *  # noqa: F401,F403
+import sys
+from app.services import data_health as _implementation
+
+sys.modules[__name__] = _implementation

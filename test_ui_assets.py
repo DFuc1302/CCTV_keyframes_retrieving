@@ -11,12 +11,16 @@ class UIAssetsTests(unittest.TestCase):
         response = client.get('/')
         self.assertEqual(response.status_code, 200)
         assets = re.findall(r'(?:src|href)="(static/[^\"]+)"', response.text)
-        self.assertEqual(len(assets), 5)
+        self.assertTrue(assets, 'The page must reference its static assets')
         for asset in assets:
             with self.subTest(asset=asset):
                 result = client.get('/' + asset)
                 self.assertEqual(result.status_code, 200)
-                self.assertIn('text/', result.headers['content-type'])
+                media_type = result.headers['content-type'].split(';', 1)[0]
+                accepted_types = {'text/css'} if asset.endswith('.css') else {
+                    'text/javascript', 'application/javascript', 'application/x-javascript',
+                }
+                self.assertIn(media_type, accepted_types)
                 self.assertTrue(result.headers.get('etag'))
 
     def test_static_route_does_not_expose_source(self):

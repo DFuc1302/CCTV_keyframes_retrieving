@@ -1,3 +1,7 @@
 """Backward-compatible entry point for shared runtime helpers."""
 
-from app.shared import *  # noqa: F401,F403
+import sys
+from app import shared as _implementation
+
+# Share private state and configuration with package imports and legacy patches.
+sys.modules[__name__] = _implementation

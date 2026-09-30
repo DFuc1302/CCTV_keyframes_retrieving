@@ -48,9 +48,9 @@ class SearchLogger:
         self.searches = OrderedDict()
         self.last_error = None
         self.key = None
-        source_root = Path(__file__).resolve().parents[1]
+        source_root = Path(__file__).resolve().parents[2]
         revision = hashlib.sha256()
-        for name in ("main.py", "shared.py", "vlm_reranker.py", "search_telemetry.py"):
+        for name in ("app/main.py", "app/shared.py", "app/services/vlm_reranker.py", "app/services/telemetry.py"):
             revision.update((source_root / name).read_bytes())
         self.configuration = {"code_revision": revision.hexdigest(),
                               "dedup_frame_gap": os.getenv("SEARCH_DEDUP_FRAME_GAP", "3"),
@@ -244,7 +244,7 @@ class SearchLogger:
         return self._guarded(write)
 
 
-logger = SearchLogger(os.getenv("SEARCH_LOG_DIR", str(Path(__file__).resolve().parents[1] / "runtime_logs")),
+logger = SearchLogger(os.getenv("SEARCH_LOG_DIR", str(Path(__file__).resolve().parents[2] / "runtime_logs")),
                       enabled=os.getenv("SEARCH_LOG_ENABLED", "1").lower() in {"1", "true", "yes"})
 
 

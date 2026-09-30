@@ -1,5 +1,7 @@
 """Backward-compatible entry point for the search application."""
 
-from app.main import *  # noqa: F401,F403
-from app.main import app
+import sys
+from app import main as _implementation
+
+sys.modules[__name__] = _implementation
 

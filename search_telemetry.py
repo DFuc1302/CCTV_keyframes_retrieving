@@ -1,3 +1,6 @@
 """Backward-compatible entry point for search telemetry."""
 
-from app.services.telemetry import *  # noqa: F401,F403
+import sys
+from app.services import telemetry as _implementation
+
+sys.modules[__name__] = _implementation

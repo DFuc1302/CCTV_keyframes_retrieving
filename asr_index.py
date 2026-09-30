@@ -1,8 +1,10 @@
 """Backward-compatible entry point for ASR indexing."""
 
-from pipeline.asr.index import *  # noqa: F401,F403
-from pipeline.asr.index import main
+import sys
+from pipeline.asr import index as _implementation
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(_implementation.main())
+else:
+    sys.modules[__name__] = _implementation
