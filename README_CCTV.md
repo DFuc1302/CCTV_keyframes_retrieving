@@ -4,9 +4,13 @@ Project kế thừa hệ thống tìm kiếm video đa phương thức, mở r�
 
 Đọc `docs/M0_INVENTORY.md` để biết nguồn kế thừa, môi trường đã khảo sát và các điều kiện còn thiếu. `README.md` là tài liệu legacy, chứa hướng dẫn WSL và không đại diện cho quy trình Windows mới.
 
+Hướng dẫn runtime Windows: `docs/WINDOWS_SETUP.md`.
+
 ```powershell
 Set-Location 'D:\Project ExploreCS\CCTV_keyframes_retrieving'
-python .\scripts\preflight_windows.py --save
+.\scripts\Setup-Windows.ps1 -Vision
+.\scripts\Test-Preflight.ps1
+.\scripts\Test-Windows.ps1
 ```
 
 Raw CCTV và dữ liệu kế thừa luôn chỉ đọc. Dữ liệu, model, index và báo cáo máy cục bộ không đưa vào Git. Chỉ mục mới và log nằm trong output riêng; kiểm kê không tải model hoặc tự động xây index.

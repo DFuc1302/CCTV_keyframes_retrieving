@@ -1,0 +1,2 @@
+-r windows-runtime.txt
+httpx>=0.27,<1

@@ -65,3 +65,7 @@ Nếu có bundle, thêm `--data-root` với đường dẫn thực tế. Script 
 4. Khi không có bundle: xử lý tập CCTV nhỏ vào output riêng ở milestone tiếp theo, không giả lập readiness.
 
 Thông số batch và FP16 sẽ được đo khi chạy model. Không đổi model embedding của bundle chỉ để giảm VRAM.
+
+## Cập nhật T0.2
+
+Người dùng xác nhận chưa tạo hoặc lưu dữ liệu CCTV. Đã tạo `.venv` Windows và cài runtime/vision, có lockfile theo Python 3.11/CUDA 12.6; Python global giữ nguyên. GPU FP16, FAISS/OpenCV và 10 core tests đạt. Full legacy suite vẫn còn lỗi đã ghi chi tiết trong `docs/WINDOWS_SETUP.md`; T0.3 chưa thể chạy khi chưa có dataset hoặc bundle.

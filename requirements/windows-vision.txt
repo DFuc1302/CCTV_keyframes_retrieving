@@ -1,0 +1,4 @@
+# Vehicle detection stage; OCR and ASR are optional, not needed for silent CCTV.
+-r windows-runtime.txt
+ultralytics>=8.3,<9
+imagehash>=4.3,<5
