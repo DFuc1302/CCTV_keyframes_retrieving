@@ -29,6 +29,10 @@ Baseline nghi sự cố theo thời gian: [`docs/CCTV_INCIDENTS.md`](docs/CCTV_I
 Move-then-stop rule chạy CPU từ tracks; có thể bắt nhầm xe chờ đèn đỏ và chưa
 được hiệu chỉnh. Kế hoạch nhãn/split/metrics: `docs/CCTV_EVENT_EVALUATION.md`.
 
+Cấu hình khu vực/đội tuần tra mô phỏng: [`docs/CCTV_RESOURCES.md`](docs/CCTV_RESOURCES.md).
+Validate budget nhân sự, reserve, kỹ năng, availability và chi phí có hướng;
+chưa gợi ý điều động hoặc xác nhận camera location thực tế.
+
 Pipeline CCTV mới: `docs/CCTV_INGESTION.md`, dùng manifest độc lập và giữ map/keyframe legacy. Có demo tổng hợp khi chưa có dữ liệu thật.
 
 Dataset demo đã đăng ký: `D:\Project ExploreCS\Demo_Data`, gồm 6 video từ hai camera N001/N002. Manifest: `configs/cctv.demo.json`. Xem `docs/DEMO_DATA.md` để chạy extraction và biết giới hạn đánh giá.

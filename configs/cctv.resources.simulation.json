@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "mode": "simulation",
+  "zones": [
+    {"zone_id": "SIM-A", "name": "Fictional zone A"},
+    {"zone_id": "SIM-B", "name": "Fictional zone B"}
+  ],
+  "camera_bindings": [
+    {"camera_id": "N001", "zone_id": "SIM-A", "status": "simulated"},
+    {"camera_id": "N002", "zone_id": "SIM-B", "status": "simulated"}
+  ],
+  "units": [
+    {"unit_id": "SIM-TEAM-A", "home_zone": "SIM-A", "officers": 2,
+     "status": "available", "skills": ["traffic_control", "scene_assessment"],
+     "allowed_zones": ["SIM-A", "SIM-B"]},
+    {"unit_id": "SIM-TEAM-B", "home_zone": "SIM-B", "officers": 2,
+     "status": "available", "skills": ["scene_assessment"],
+     "allowed_zones": ["SIM-A", "SIM-B"]},
+    {"unit_id": "SIM-TEAM-C", "home_zone": "SIM-A", "officers": 2,
+     "status": "busy", "skills": ["traffic_control"],
+     "allowed_zones": ["SIM-A"]}
+  ],
+  "travel_times": [
+    {"from_zone": "SIM-A", "to_zone": "SIM-B", "seconds": 90.0},
+    {"from_zone": "SIM-B", "to_zone": "SIM-A", "seconds": 120.0}
+  ],
+  "policy": {
+    "staff_budget": 6,
+    "max_dispatch_officers": 4,
+    "reserve_officers": 2,
+    "require_confirmed_events": true
+  }
+}
