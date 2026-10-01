@@ -208,3 +208,19 @@ console không lỗi; raw/upstream không đổi. Chi tiết:
 Các khoảng demo đã dùng chạy thử pipeline, không phải mẫu đại diện hoặc
 blind test mới. Ảnh sạch không chứng minh reviewer độc lập. Review/nhãn thật
 và recording groups phải do con người xác minh; chưa tính metrics thật.
+
+## Bổ sung T8.2 — notes riêng và validation trước adjudication
+
+Module `pipeline.cctv.review_notes` tạo hai slot pending, kiểm tra schema,
+manifest/template SHA, scope/PTS, tên reviewer khác nhau và timestamp có
+timezone. Unknown không thành âm tính; complete phải khai báo đã xem toàn
+khoảng/ontology. So sánh exact label/start/end multisets, không phụ thuộc
+ID ghi chú, không auto-merge hoặc xuất annotation reviewed.
+
+Demo tạo hai templates và báo cáo sáu khoảng pending; reviewer null,
+ground_truth_published=false, reviewed_intervals=0. 11 tests mới dùng fixtures
+giả xác minh agreement/disagreement, unknown/exposure, provenance/identity,
+bounds và bảo toàn output/resume. Ghi chú thật và adjudication chưa có;
+blind review chỉ là khai báo, không được xác thực. Hướng dẫn Windows:
+`CCTV_REVIEW_NOTES.md`. Windows core suite đạt 225 tests; pip check,
+compile và CUDA FP16/NMS đạt. Bước kỹ thuật kế tiếp T8.3 là adjudication/export.
