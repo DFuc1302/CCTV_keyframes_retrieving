@@ -208,9 +208,16 @@ class Workflow:
                 float(payload["start_sec"]),
                 float(payload["duration_sec"]),
             )
+            scope = payload.get("tracking_scope", "range")
+            mode = payload.get("tracking_mode", "native")
+            if scope not in {"full", "range"} or mode not in {"sampled", "native"}:
+                raise ValueError("Chọn phạm vi và chế độ tracking hợp lệ.")
+            if scope == "full":
+                start = 0.0
+                duration = min(v["duration"]-v["first_pts"] for v in data["videos"])
             if (
                 not 0 <= start
-                or not 1 <= duration <= 60
+                or not 1 <= duration or (scope == "range" and duration > 60)
                 or any(
                     start + duration > v["duration"] - v["first_pts"]
                     for v in data["videos"]
@@ -249,6 +256,8 @@ class Workflow:
                 duration_sec=duration,
                 roi=roi,
                 synthetic_case=bool(payload.get("synthetic_case", True)),
+                tracking_scope=scope,
+                tracking_mode=mode,
             )
             data.pop("job", None)
             data.pop("active", None)
@@ -340,8 +349,14 @@ class Workflow:
         )
         self.write(configs / "roi.json", p["roi"])
         metrics = read_json(ROOT / "configs/cctv.congestion.demo.json")
+        if p.get("tracking_mode") == "sampled":
+            metrics.update(max_gap_sec=0.75, min_motion_pairs=1)
         metrics["cameras"] = [dict(metrics["cameras"][0], camera_id=c) for c in cameras]
         self.write(configs / "metrics.json", metrics)
+        incidents = read_json(ROOT / "configs/cctv.incidents.demo.json")
+        if p.get("tracking_mode") == "sampled":
+            incidents["max_gap_sec"] = 0.75
+        self.write(configs / "incidents.json", incidents)
         resources = read_json(ROOT / "configs/cctv.resources.simulation.json")
         resources["camera_bindings"] = [
             dict(camera_id=c, zone_id="SIM-A", status="simulated") for c in cameras
@@ -406,8 +421,10 @@ class Workflow:
                     r("tracking-clips"),
                     "--start-sec",
                     str(p["start_sec"]),
-                    "--duration-sec",
-                    str(p["duration_sec"]),
+                    *( ["--full-video"] if p.get("tracking_scope") == "full" else
+                       ["--duration-sec", str(p["duration_sec"])] ),
+                    "--sample-interval-sec",
+                    "0.5" if p.get("tracking_mode") == "sampled" else "0",
                     "--segment-seconds",
                     "5",
                     "--device",
@@ -464,7 +481,7 @@ class Workflow:
                     "--roi",
                     r("roi.json"),
                     "--config",
-                    str(ROOT / "configs/cctv.incidents.demo.json"),
+                    r("incidents.json"),
                     "--tracking-dir",
                     r("tracking-clips"),
                     "--output",

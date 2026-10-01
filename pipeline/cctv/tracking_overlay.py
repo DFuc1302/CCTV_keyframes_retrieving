@@ -20,7 +20,7 @@ from pipeline.cctv import track
 from pipeline.cctv.events import protect_output, read_json
 from pipeline.cctv.ingest import digest, output_lease, reject_link, save_json
 from pipeline.cctv.manifest import load_manifest
-from pipeline.cctv.track import TrackFrame, decoded_frames
+from pipeline.cctv.track import TrackFrame, decoded_frames, sampled_frames
 
 LOG = logging.getLogger(__name__)
 
@@ -77,13 +77,14 @@ def render(
     duration: float,
     width: int,
     target: Path,
+    sample_interval: float = 0.0,
 ) -> dict:
     """Keep one decoded frame and one ledger row; abort an invalid clip, not skip it."""
     count = conn.execute(
         "SELECT COUNT(*) FROM frames WHERE video_id=?", (video_id,)
     ).fetchone()[0]
-    if not 2 <= count <= 5000:
-        raise ValueError("Overlay requires 2..5000 stored frames per clip")
+    if count < 2:
+        raise ValueError("Overlay requires at least two stored frames")
     records = iter(
         conn.execute(
             "SELECT frame_idx,payload FROM frames WHERE video_id=? ORDER BY frame_idx",
@@ -103,7 +104,7 @@ def render(
         av.open(str(target), mode="w", format="mp4") as output,
     ):
         for decoded in tqdm(
-            native,
+            sampled_frames(native, start, sample_interval),
             total=count,
             desc=video_id,
             unit="frame",
@@ -134,7 +135,7 @@ def render(
                     )
                 ):
                     raise ValueError("Decoded source/ledger locator mismatch")
-                if previous is not None and decoded.frame_idx != previous + 1:
+                if not sample_interval and previous is not None and decoded.frame_idx != previous + 1:
                     raise ValueError("Tracking frames are not consecutive")
                 previous = decoded.frame_idx
                 with draw_overlay(decoded.image, frame, width) as annotated:
@@ -144,7 +145,7 @@ def render(
                             decoded.timestamp_sec,
                         )
                         base = Fraction(*decoded.time_base)
-                        stream = output.add_stream("libx264", rate=25)
+                        stream = output.add_stream("libx264", rate=2 if sample_interval else 25)
                         stream.width, stream.height = annotated.size
                         stream.pix_fmt = "yuv420p"
                         stream.time_base = base
@@ -230,12 +231,11 @@ def run(manifest_path: Path, tracking: Path, output: Path, width: int = 960) -> 
         raise ValueError("Tracking belongs to another source manifest")
     duration, start = signature["duration_sec"], signature["start_sec"]
     if (
-        duration is None
-        or not 0 < duration <= 60
+        (duration is not None and (not math.isfinite(duration) or duration <= 0))
         or not math.isfinite(start)
         or start < 0
     ):
-        raise ValueError("Overlay accepts bounded tracking clips of at most 60 seconds")
+        raise ValueError("Invalid tracking start/duration")
     videos = {v.video_id: v for v in manifest.videos}
     selected = publication["videos"]
     if (
@@ -325,6 +325,7 @@ def run(manifest_path: Path, tracking: Path, output: Path, width: int = 960) -> 
                     duration,
                     width,
                     temporary,
+                    sample_interval=signature.get("sample_interval_sec", 0),
                 )
                 if before != {
                     str(p): (digest(p), p.stat().st_mtime_ns) for p in inputs

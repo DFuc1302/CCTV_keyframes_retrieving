@@ -46,6 +46,8 @@ function workflowSelect(data) {
   workflowRois = {};
   for (const camera of data.preparation?.roi.cameras || []) workflowRois[camera.camera_id] = camera.polygon || [];
   $("workflow-start").value = data.preparation?.start_sec ?? (data.demo ? 30 : 0);
+  $("workflow-scope").value = data.preparation ? (data.preparation.tracking_scope || "range") : "full";
+  $("workflow-tracking-mode").value = data.preparation ? (data.preparation.tracking_mode || "native") : "sampled";
   $("workflow-duration").value = data.preparation?.duration_sec ?? Math.min(10, ...data.videos.map(v => v.duration-v.first_pts));
   $("workflow-synthetic").checked = data.preparation?.synthetic_case ?? true;
   $("workflow-videos").replaceChildren(); $("workflow-roi-video").replaceChildren();
@@ -74,6 +76,8 @@ async function workflowRefresh() {
   for (const id of ["workflow-demo","workflow-new","workflow-save","workflow-frame","workflow-full","workflow-clear","workflow-undo","workflow-dataset","workflow-start","workflow-duration","workflow-roi-video","workflow-synthetic"]) $(id).disabled=busy;
   document.querySelectorAll("[data-workflow-video]").forEach(input=>input.disabled=busy);
   $("workflow-files").disabled=busy || !data || data.demo || data.videos.length>=6;
+  $("workflow-scope").disabled=$("workflow-tracking-mode").disabled=busy;
+  $("workflow-start").disabled=$("workflow-duration").disabled=busy || $("workflow-scope").value==="full";
   $("workflow-run").disabled=busy || !data?.preparation || !catalog.models_ready;
   $("workflow-models").disabled=busy || !data || catalog.models_ready;
   $("workflow-retry").disabled=busy || !["failed","cancelled","interrupted"].includes(job?.status);
@@ -116,6 +120,7 @@ $("workflow-files").onchange=()=>workflowAction(async()=>{
   } finally { workflowUploading=false; $("workflow-upload").hidden=true; $("workflow-files").value=""; }
 });
 $("workflow-frame").onclick=()=>workflowAction(workflowFrame);
+$("workflow-scope").onchange=()=>{ if($("workflow-scope").value==="full") $("workflow-start").value=0; workflowRefresh().catch(problem=>workflowProblem(problem.message)); };
 $("workflow-roi-video").onchange=()=>workflowAction(workflowFrame);
 let workflowDrag=null, workflowSkipClick=false;
 function workflowPoint(event) {
@@ -169,7 +174,7 @@ $("workflow-full").onclick=()=>{ workflowRois[workflowCamera()]=[[0,0],[1,0],[1,
 $("workflow-save").onclick=()=>workflowAction(async()=>{
   if(!workflowData) throw new Error("Chọn bộ dữ liệu trước.");
   const cameras=Object.fromEntries(Array.from(document.querySelectorAll("[data-workflow-video]")).map(input=>[input.dataset.workflowVideo,input.value.trim()]));
-  await workflowApi(`/cctv/workflow/${workflowData.id}/prepare`,{cameras,rois:workflowRois,start_sec:Number($("workflow-start").value),duration_sec:Number($("workflow-duration").value),synthetic_case:$("workflow-synthetic").checked});
+  await workflowApi(`/cctv/workflow/${workflowData.id}/prepare`,{cameras,rois:workflowRois,start_sec:Number($("workflow-start").value),duration_sec:Number($("workflow-duration").value),tracking_scope:$("workflow-scope").value,tracking_mode:$("workflow-tracking-mode").value,synthetic_case:$("workflow-synthetic").checked});
 });
 for(const [id,payload] of [["workflow-run",{}],["workflow-models",{download:true}],["workflow-retry",{retry:true}]]) $(id).onclick=()=>workflowAction(async()=>{ await workflowApi(`/cctv/workflow/${workflowData.id}/jobs`,payload); await checkReady(); });
 $("workflow-stop").onclick=()=>workflowAction(()=>workflowApi("/cctv/workflow/stop",{}));

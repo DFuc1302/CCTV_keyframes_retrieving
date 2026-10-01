@@ -89,6 +89,18 @@ def decoded_frames(
             )
 
 
+def sampled_frames(reader, start: float, interval: float):
+    """Select the first source frame at each PTS deadline; close skipped images."""
+    deadline = start
+    for frame in reader:
+        if interval and frame.timestamp_sec + 1e-9 < deadline:
+            frame.image.close()
+            continue
+        if interval:
+            deadline = start + (math.floor((frame.timestamp_sec-start+1e-9)/interval)+1)*interval
+        yield frame
+
+
 class TrackFrame(Contract):
     """Frame ledger keeps empty observations and verifies rational PTS consistency."""
 
@@ -137,10 +149,11 @@ class ByteTrackBackend(YoloDetector):
 
         self.tracker_class = BYTETracker
         self.tracker_config = tracker_config
+        self.recipe_interval = recipe.get("sample_interval_sec", 0)
 
     def reset(self) -> None:
         """New segment resets Kalman state and IDs; IDs remain scoped by segment."""
-        self.tracker = self.tracker_class(SimpleNamespace(**self.tracker_config))
+        self.tracker = self.tracker_class(SimpleNamespace(**self.tracker_config), frame_rate=round(1/self.recipe_interval) if getattr(self,"recipe_interval",0) else 30)
 
     def process(self, image: Image.Image) -> list[dict]:
         """Feed every decoded frame once; low-score boxes can rescue existing tracks."""
@@ -374,10 +387,12 @@ def track_videos(
     video_ids: list[str] | None = None,
     backend_factory=ByteTrackBackend,
     reader_factory=decoded_frames,
+    sample_interval: float = 0.0,
 ) -> dict:
     """Resume committed segments; replay incomplete segments with fresh tracker IDs."""
     if (
         device not in {"cuda", "cpu"}
+        or sample_interval not in {0, 0.5}
         or not math.isfinite(start)
         or start < 0
         or not math.isfinite(segment_seconds)
@@ -407,6 +422,7 @@ def track_videos(
         raise ValueError("Tracker config must match the validated ByteTrack baseline")
     recipe, weights = model_recipe(model_path, device, 1, 1)
     recipe.update(
+        sample_interval_sec=sample_interval,
         confidence=0.1,
         tracker_config_sha256=digest(tracker_path),
         track_code_sha256=digest(Path(__file__)),
@@ -442,6 +458,7 @@ def track_videos(
                 "start_sec": start,
                 "duration_sec": duration,
                 "segment_seconds": segment_seconds,
+                "sample_interval_sec": sample_interval,
             }
         )
     )
@@ -574,7 +591,7 @@ def track_videos(
                             desc=video.video_id, unit="frame", leave=False
                         ) as progress,
                     ):
-                        for frame in reader:
+                        for frame in sampled_frames(reader, start, sample_interval):
                             try:
                                 sid = f"seg-{int((frame.timestamp_sec - start) // segment_seconds):06d}"
                                 if sid != current:
@@ -605,7 +622,7 @@ def track_videos(
                                     try:
                                         if (
                                             previous is not None
-                                            and frame.timestamp_sec - previous > 0.5
+                                            and frame.timestamp_sec - previous > (0.75 if sample_interval else 0.5)
                                         ):
                                             raise ValueError(
                                                 "PTS gap exceeds 0.5s; refusing to connect tracks"
@@ -711,6 +728,7 @@ def main() -> int:
     duration.add_argument("--duration-sec", type=float, default=10)
     duration.add_argument("--full-video", action="store_true")
     parser.add_argument("--segment-seconds", type=float, default=10)
+    parser.add_argument("--sample-interval-sec", type=float, choices=(0, 0.5), default=0)
     parser.add_argument("--device", choices=("cuda", "cpu"), default="cuda")
     parser.add_argument("--video-id", action="append")
     args = parser.parse_args()
@@ -726,6 +744,7 @@ def main() -> int:
             args.segment_seconds,
             args.device,
             args.video_id,
+            sample_interval=args.sample_interval_sec,
         )
         print(json.dumps(result, indent=2))
         return 1 if result["error"] else 0

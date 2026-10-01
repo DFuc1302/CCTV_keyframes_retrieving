@@ -129,7 +129,7 @@ class OverlayStore:
                         if (
                             type(entry["frames"]) is not int
                             or entry["frames"] != count
-                            or not 2 <= count <= 5000
+                            or count < 2
                             or not math.isfinite(offset)
                             or offset != start
                             or entry["source_start_sec"] != start

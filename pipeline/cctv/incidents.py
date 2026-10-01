@@ -417,7 +417,7 @@ def process_incidents(
                                     if (
                                         not start
                                         <= stamp
-                                        < start + ts["signature"]["duration_sec"]
+                                        < (start + ts["signature"]["duration_sec"] if ts["signature"]["duration_sec"] is not None else float("inf"))
                                     ):
                                         raise ValueError("Frame outside processed clip")
                                     yield frame
