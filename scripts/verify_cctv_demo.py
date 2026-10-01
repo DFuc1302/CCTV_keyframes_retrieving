@@ -35,10 +35,15 @@ def require(condition: bool, message: str) -> None:
 
 
 def verify_demo(
-    client: httpx.Client, catalog: dict, require_overlays: bool = False
+    client: httpx.Client,
+    catalog: dict,
+    require_overlays: bool = False,
+    profile: str = "legacy",
+    expected_dispatch: set[str] | None = None,
 ) -> dict:
     """Exercise retrieval/assets and three demo packages; fail on missing stages."""
     checks = {}
+    require(profile in {"legacy", "workflow"}, "Unknown verification profile")
 
     def get(url: str) -> dict:
         response = client.get(url)
@@ -59,6 +64,9 @@ def verify_demo(
     for name in ("app.js", "traffic.js", "events.js", "dispatch.js", "style.css"):
         client.get("/static/" + name).raise_for_status()
     checks["ui_assets"] = "PASSED"
+    if profile == "workflow":
+        require('id="workflow-panel"' in home.text, "Workflow panel missing")
+        client.get("/static/workflow.js").raise_for_status()
 
     rows = verify_results(
         get("/cctv/search?query=a%20road%20intersection&top_k=1"), catalog, 1
@@ -216,7 +224,12 @@ def verify_demo(
     require(dispatch["read_only"] is True, "Dispatch must be read-only")
     packages = {p["package_id"]: p for p in dispatch["packages"]}
     require(
-        set(packages) == {"simulation", "events_empty", "review_gate"}
+        set(packages)
+        == (
+            {"simulation", "events_empty", "review_gate"}
+            if profile == "legacy"
+            else expected_dispatch
+        )
         and all(p["available"] for p in packages.values()),
         "Demo dispatch packages missing/stale",
     )

@@ -75,7 +75,10 @@ class Workflow:
         self.cancelled = threading.Event()
         self.closing = False
         self.active = None
-        for path in self.root.glob("*/job.json"):
+        for path in [
+            *self.root.glob("*/job.json"),
+            *self.root.glob("*/verify-job.json"),
+        ]:
             job = read_json(path)
             if job["status"] in {"running", "queued"}:
                 job.update(status="interrupted", error="Ứng dụng đã dừng; bấm Thử lại.")
@@ -108,12 +111,44 @@ class Workflow:
 
     def public(self, dataset_id: str) -> dict:
         data = copy.deepcopy(self.get(dataset_id))
+        data["has_results"] = bool(data.get("run"))
         data.pop("run", None)
         for video in data["videos"]:
             video.pop("source", None)
         if data["job"]:
             data["job"].pop("run", None)
             data["job"].pop("snapshot", None)
+        with self.lock:
+            path = self.folder(dataset_id) / "verify-job.json"
+            verification = read_json(path) if path.exists() else None
+            if verification:
+                output = Path(verification["run"])
+                progress = output / "progress.jsonl"
+                if progress.exists() and verification["status"] == "running":
+                    with progress.open("rb") as handle:
+                        handle.seek(max(0, progress.stat().st_size - 4096))
+                        for line in handle.read().splitlines():
+                            try:
+                                verification.update(json.loads(line))
+                            except ValueError:
+                                pass
+                if verification["status"] == "complete":
+                    report = read_json(output / "report.json")
+                    verification["report"] = {
+                        k: report[k]
+                        for k in (
+                            "status",
+                            "pending",
+                            "verified_utc",
+                            "m8",
+                            "second_machine",
+                            "real_accuracy_measured",
+                        )
+                    }
+                verification.pop("run", None)
+                verification.pop("source_run", None)
+                verification.pop("url", None)
+            data["verification_job"] = verification
         return data
 
     def create(self, name: str, demo: bool = False) -> dict:
@@ -497,23 +532,7 @@ class Workflow:
                 job.update(stage=name, completed=index)
                 with self.lock:
                     save_json(folder / "job.json", job)
-                with (run / "console.log").open("ab") as log:
-                    self.process = subprocess.Popen(
-                        [sys.executable, "-m", module, *args],
-                        cwd=ROOT,
-                        stdout=log,
-                        stderr=log,
-                    )
-                    if self.cancelled.is_set():
-                        self.stop()
-                    code = self.process.wait()
-                    self.process = None
-                if self.cancelled.is_set() or self.closing:
-                    raise InterruptedError("Đã dừng; bấm Thử lại để tiếp tục.")
-                if code:
-                    raise ValueError(
-                        f"{name} chưa hoàn tất (exit {code}). Xem nhật ký rồi Thử lại."
-                    )
+                self.command(module, args, run)
             if not job["download"]:
                 if self.cancelled.is_set():
                     raise InterruptedError("Đã dừng trước khi kích hoạt kết quả.")
@@ -542,6 +561,103 @@ class Workflow:
         finally:
             with self.lock:
                 save_json(folder / "job.json", job)
+
+    def command(self, module: str, args: list[str], output: Path) -> None:
+        """Run one owned child tree; shared cancellation covers both job types."""
+        if self.cancelled.is_set() or self.closing:
+            raise InterruptedError("Đã dừng; bấm Thử lại để tiếp tục.")
+        with (output / "console.log").open("ab") as log:
+            self.process = subprocess.Popen(
+                [sys.executable, "-m", module, *args], cwd=ROOT, stdout=log, stderr=log
+            )
+            if self.cancelled.is_set():
+                self.stop()
+            code = self.process.wait()
+            self.process = None
+        if self.cancelled.is_set() or self.closing:
+            raise InterruptedError("Đã dừng; bấm Thử lại để tiếp tục.")
+        if code:
+            raise ValueError(
+                f"{module} chưa hoàn tất (exit {code}). Xem nhật ký rồi Thử lại."
+            )
+
+    def verify_start(self, dataset_id: str, url: str, retry: bool = False) -> None:
+        """Start independent verification metadata without replacing pipeline jobs."""
+        from pipeline.cctv.benchmark_runtime import loopback_url
+
+        with self.lock:
+            self.idle()
+            data = self.get(dataset_id)
+            if not data.get("run"):
+                raise ValueError("Chạy pipeline hoàn tất trước khi tự kiểm chứng T10.")
+            folder = self.folder(dataset_id)
+            path = folder / "verify-job.json"
+            if retry:
+                job = read_json(path)
+                if job["status"] not in {"failed", "cancelled", "interrupted"}:
+                    raise ValueError("Chỉ thử lại kiểm chứng đã lỗi hoặc dừng.")
+                if job["source_run"] != data["run"] or job["url"] != loopback_url(url):
+                    raise ValueError("Dataset/server đã đổi; tạo lượt kiểm chứng mới.")
+            else:
+                output = folder / ("t10-" + uuid.uuid4().hex)
+                output.mkdir()
+                job = dict(
+                    id=output.name,
+                    run=str(output),
+                    source_run=data["run"],
+                    url=loopback_url(url),
+                )
+            job.update(
+                status="queued", stage="Chuẩn bị T10", completed=0, total=5, error=None
+            )
+            save_json(path, job)
+            self.cancelled.clear()
+            self.thread = threading.Thread(
+                target=self.verify_worker, args=(dataset_id, job), daemon=True
+            )
+            self.thread.start()
+
+    def verify_worker(self, dataset_id: str, job: dict) -> None:
+        """Activate once if necessary; CPU checks retain the serving model."""
+        path = self.folder(dataset_id) / "verify-job.json"
+        output = Path(job["run"])
+        switched = False
+        try:
+            if self.active != dataset_id:
+                self.release()
+                switched = True
+                self.activate(Path(job["source_run"]))
+                self.active = dataset_id
+            job.update(status="running", stage="Kiểm chứng demo T10")
+            with self.lock:
+                save_json(path, job)
+            self.command(
+                "scripts.verify_cctv_t10",
+                [
+                    "--run",
+                    job["source_run"],
+                    "--output",
+                    str(output),
+                    "--url",
+                    job["url"],
+                ],
+                output,
+            )
+            report = read_json(output / "report.json")
+            if report["status"] != "PASSED_DEMO_CHECKS":
+                raise ValueError("T10 report chưa đạt.")
+            job.update(status="complete", stage="Kiểm chứng demo đạt", completed=5)
+        except Exception as exc:
+            job.update(
+                status="cancelled" if isinstance(exc, InterruptedError) else "failed",
+                error=str(exc),
+            )
+            if switched and not self.closing:
+                self.restore()
+                self.active = None
+        finally:
+            with self.lock:
+                save_json(path, job)
 
     def stop(self) -> None:
         self.cancelled.set()
@@ -579,6 +695,18 @@ class Workflow:
             for path in run.rglob("*.json"):
                 if path.stat().st_size <= 4 * 1024**2:
                     archive.write(path, str(path.relative_to(run)))
+            verification = self.folder(dataset_id) / "verify-job.json"
+            with self.lock:
+                job = read_json(verification) if verification.exists() else None
+            if job and job["status"] == "complete" and job["source_run"] == str(run):
+                output = Path(job["run"])
+                for path in output.rglob("*"):
+                    if (
+                        path.is_file()
+                        and path.suffix in {".json", ".md", ".log"}
+                        and path.stat().st_size <= 4 * 1024**2
+                    ):
+                        archive.write(path, "t10/" + str(path.relative_to(output)))
         return buffer.getvalue()
 
 
@@ -738,6 +866,18 @@ def install(app, workflow: Workflow):
         workflow.stop()
         return {"stopping": True}
 
+    @app.post("/cctv/workflow/{dataset_id}/verify")
+    async def verify(dataset_id: str, request: Request):
+        payload = await read_payload(request)
+        try:
+            retry = payload.get("retry", False)
+            if not isinstance(retry, bool):
+                raise ValueError("retry must be a boolean")
+            workflow.verify_start(dataset_id, str(request.base_url).rstrip("/"), retry)
+            return workflow.public(dataset_id)
+        except (ValueError, OSError) as exc:
+            raise failure(exc)
+
     @app.post("/cctv/workflow/{dataset_id}/activate")
     def activate(dataset_id: str, request: Request):
         origin(request)
@@ -759,8 +899,12 @@ def install(app, workflow: Workflow):
             raise failure(exc)
 
     @app.get("/cctv/workflow/{dataset_id}/log")
-    def log(dataset_id: str):
+    def log(dataset_id: str, verification: bool = False):
         data = workflow.get(dataset_id)
+        if verification:
+            with workflow.lock:
+                path = workflow.folder(dataset_id) / "verify-job.json"
+                data["job"] = read_json(path) if path.exists() else None
         if not data["job"]:
             return {"text": "Chưa có tác vụ."}
         path = Path(data["job"]["run"]) / "console.log"

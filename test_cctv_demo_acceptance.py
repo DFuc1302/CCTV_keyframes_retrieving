@@ -103,14 +103,15 @@ class DemoAcceptanceTests(unittest.TestCase):
         self.video_status = 206
         self.requests = []
 
-    def verify(self):
+    def verify(self, profile="legacy", expected_dispatch=None):
         def handle(request):
             self.requests.append(str(request.url))
             path = request.url.path
             if path == "/":
                 return httpx.Response(
                     200,
-                    text="".join(
+                    text='<div id="workflow-panel"></div>'
+                    + "".join(
                         f'<div id="{p}-workspace"></div>'
                         for p in ("search", "traffic", "events", "dispatch")
                     ),
@@ -134,7 +135,23 @@ class DemoAcceptanceTests(unittest.TestCase):
         with httpx.Client(
             base_url="http://127.0.0.1:8080", transport=httpx.MockTransport(handle)
         ) as client:
-            return verify_demo(client, self.catalog)
+            return verify_demo(
+                client,
+                self.catalog,
+                profile=profile,
+                expected_dispatch=expected_dispatch,
+            )
+
+    def test_workflow_profile_requires_exact_current_packages(self):
+        self.payloads["/cctv/dispatch"]["packages"] = [
+            dict(package_id="simulation", available=True)
+        ]
+        self.assertTrue(self.verify("workflow", {"simulation"})["passed"])
+        with self.assertRaisesRegex(ValueError, "missing/stale"):
+            self.verify()
+        self.payloads["/cctv/dispatch"]["packages"][0]["available"] = False
+        with self.assertRaisesRegex(ValueError, "missing/stale"):
+            self.verify("workflow", {"simulation"})
 
     def test_complete_http_flow(self):
         report = self.verify()

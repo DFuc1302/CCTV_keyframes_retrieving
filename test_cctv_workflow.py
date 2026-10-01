@@ -178,6 +178,63 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(self.workflow.get(dataset)["job"]["status"], "cancelled")
         self.assertEqual(self.calls, ["release"])
 
+    def test_verification_is_separate_serial_retry_and_zip(self):
+        dataset = self.create()
+        endpoint = f"/cctv/workflow/{dataset}/verify"
+        self.assertEqual(self.client.post(endpoint, json={}).status_code, 403)
+        self.assertEqual(
+            self.client.post(endpoint, json={}, headers=self.origin).status_code, 400
+        )
+        data = self.workflow.get(dataset)
+        folder = self.workflow.folder(dataset)
+        run = folder / "run-complete"
+        run.mkdir()
+        save_json(run / "preparation.json", {"roi": "pending"})
+        data.update(run=str(run))
+        data.pop("job")
+        data.pop("active")
+        save_json(folder / "dataset.json", data)
+        save_json(folder / "job.json", dict(status="complete", marker="pipeline"))
+        pipeline_before = (folder / "job.json").read_bytes()
+        self.workflow.active = dataset
+        with patch.object(self.workflow, "command") as command:
+            command.side_effect = ValueError("HTTP failed")
+            self.workflow.verify_start(dataset, "http://127.0.0.1:8087")
+            self.workflow.thread.join(5)
+            public = self.workflow.public(dataset)
+            self.assertEqual(public["verification_job"]["status"], "failed")
+            first = public["verification_job"]["id"]
+
+            def complete(module, args, output):
+                save_json(
+                    output / "report.json",
+                    dict(
+                        status="PASSED_DEMO_CHECKS",
+                        pending={"T10_4": "M8"},
+                        verified_utc="fixture",
+                        m8="PENDING",
+                        second_machine="NOT_RUN",
+                        real_accuracy_measured=False,
+                    ),
+                )
+                (output / "report.md").write_text("Demo only", encoding="utf-8")
+
+            command.side_effect = complete
+            self.workflow.verify_start(dataset, "http://127.0.0.1:8087", retry=True)
+            self.workflow.thread.join(5)
+        public = self.workflow.public(dataset)
+        self.assertEqual(public["verification_job"]["status"], "complete")
+        self.assertEqual(public["verification_job"]["id"], first)
+        self.assertNotIn("source_run", public["verification_job"])
+        self.assertEqual(pipeline_before, (folder / "job.json").read_bytes())
+        self.assertEqual(self.calls, [])
+        with zipfile.ZipFile(io.BytesIO(self.workflow.bundle(dataset))) as archive:
+            self.assertIn("t10/report.md", archive.namelist())
+        with patch.object(self.workflow, "thread") as thread:
+            thread.is_alive.return_value = True
+            with self.assertRaisesRegex(ValueError, "Đang xử lý"):
+                self.workflow.verify_start(dataset, "http://127.0.0.1:8087")
+
 
 if __name__ == "__main__":
     unittest.main()
