@@ -40,6 +40,7 @@ Không suy số tuần thực tế đã làm hoặc phần trăm hoàn thành t�
 | M7: tích hợp demo sự kiện/điều phối | T7.1–T7.3 đạt kỹ thuật cục bộ | Event/evidence, phân bổ mô phỏng, HTTP/browser smoke và runtime mới có; chưa nghiệm thu chất lượng hoặc máy thứ hai |
 | M8: chuẩn bị review/nhãn độc lập | T8.1–T8.3 có công cụ pending | Tư liệu sạch, notes riêng, comparison và explicit adjudication/export; chưa review thật hoặc tạo ground truth |
 | M9: tiện ích chạy thử | Hoàn tất T9.1–T9.6 | HTTP smoke, tracking overlay API/UI, runtime và rebuild đã kiểm chứng cục bộ; chất lượng/nhãn thật thuộc các mốc còn mở |
+| M10: đánh giá độc lập và tái lập | Đang chuẩn bị T10.1 | Inventory sáu video và forms pending đã có; chỉ một reviewer, M8 pending theo user; ROI/groups/labels/máy thứ hai chưa đủ đầu vào |
 
 Sau hai bản sửa launcher (encoding PowerShell và cổng bận), core suite đã chạy
 lại bằng Windows PowerShell 5.1: **47 tests đạt**, runtime CUDA FP16/NMS đạt.
@@ -292,6 +293,19 @@ git add docs/CCTV_PROGRESS.md
 git commit -m 'docs: close T9 demo milestone with verified acceptance evidence'
 git push origin main
 ```
+
+## M10 — triển khai theo kế hoạch đánh giá
+
+Chi tiết protocol/tasks/gates và PowerShell: `CCTV_M10_EVALUATION.md`.
+T10.1 technical inventory đã chạy trên sáu MOV hiện có, 3.614,160 giây
+container duration, same raw SHA như inventory gốc. Năm JSON resume giữ
+SHA/mtime; content/groups/splits/ROI không tự suy hoặc duyệt. Kiểm kê kỹ
+thuật hoàn tất không đồng nghĩa content/group verification hoàn tất.
+Theo cập nhật người dùng: chỉ một reviewer, giữ M8 pending và chờ thông tin.
+T10.2–T10.6 chờ ROI/groups/nhãn đủ gate; không chạy calibration trên demo
+pending. T10.7 chưa có máy thứ hai được truy cập/chạy; vẫn NOT_RUN.
+Kiểm chứng bước chuẩn bị: **261 core tests đạt**, pip check/compile/CUDA
+FP16/NMS đạt; bản sao ba forms working đã tạo mà không phê duyệt hoặc gán nhãn.
 
 Mỗi task: code/module hoàn chỉnh → kiểm thử phù hợp và dữ liệu mẫu → tài liệu
 PowerShell → Conventional Commit → push. Chạy CLIP phục vụ và detector theo
