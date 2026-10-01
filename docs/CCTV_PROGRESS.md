@@ -39,7 +39,7 @@ Không suy số tuần thực tế đã làm hoặc phần trăm hoàn thành t�
 | M6: đánh giá và bàn giao | T6.1–T6.3 có công cụ/tài liệu | Event evaluator, frozen HTTP latency, báo cáo và package bàn giao đã có; nhãn thật và chạy máy thứ hai còn mở |
 | M7: tích hợp demo sự kiện/điều phối | T7.1–T7.3 đạt kỹ thuật cục bộ | Event/evidence, phân bổ mô phỏng, HTTP/browser smoke và runtime mới có; chưa nghiệm thu chất lượng hoặc máy thứ hai |
 | M8: chuẩn bị review/nhãn độc lập | T8.1–T8.3 có công cụ pending | Tư liệu sạch, notes riêng, comparison và explicit adjudication/export; chưa review thật hoặc tạo ground truth |
-| M9: tiện ích chạy thử | T9.1–T9.3 có smoke và overlay UI | Một lệnh HTTP smoke, MP4 tracking/source PTS và API/UI chỉ đọc; chưa nghiệm thu chất lượng |
+| M9: tiện ích chạy thử | T9.1–T9.4 đạt kỹ thuật cục bộ | HTTP smoke, tracking overlay API/UI và runtime/gói bàn giao hiện tại; chưa nghiệm thu chất lượng |
 
 Sau hai bản sửa launcher (encoding PowerShell và cổng bận), core suite đã chạy
 lại bằng Windows PowerShell 5.1: **47 tests đạt**, runtime CUDA FP16/NMS đạt.
@@ -205,6 +205,7 @@ không tự suy vị trí, thời gian tuyệt đối hoặc hiệu chuẩn tố
 | T9.1: managed demo smoke — đã có | Một lệnh PowerShell, socket reservation, readiness timeout, HTTP T7.3 và shutdown server sở hữu; existing mode không tạo/dừng server |
 | T9.2: tracking overlay — đã có offline | MP4 H.264 CPU, bbox/segment-scoped ID từ ledger, source/PTS guards, checkpoint/resume; không inference mới hoặc duyệt ROI |
 | T9.3: overlay trên traffic UI — đã có | MP4/Range và optional catalog, provenance/snapshot guards, source offset, nút xem clip; không duyệt dữ liệu |
+| T9.4: runtime/bàn giao hiện tại — đã có | 120 measured + 24 warmup không lỗi, resume không HTTP, sealed handover; máy thứ hai NOT_RUN |
 
 Sau T8.2: **225 core tests đạt**, pip check/compile/CUDA FP16/NMS đạt.
 11 tests mới dùng fixtures; hai templates và comparison demo giữ sáu khoảng
@@ -229,6 +230,13 @@ Xem `CCTV_TRACKING_OVERLAY.md`. T9.3 đã nối overlay vào UI traffic:
 RequireOverlays đạt sáu clips, 108 protected files giữ SHA/mtime. Browser
 source 36,036 → overlay 5,999 giây, readyState=4, console không lỗi.
 Xem `CCTV_OVERLAY_UI.md`; ROI/nhãn thật và máy thứ hai vẫn pending.
+
+T9.4: benchmark app `9ff3006` đạt; text P50/P95=52,18/56,18 ms,
+image=128,07/139,86 ms, không lỗi trong 120 measured + 24 warmup requests.
+Resume không HTTP; 56 protected files và hai runtime JSON giữ SHA/mtime.
+Gói `handover-t9-v1` export/resume ba JSON đạt; máy thứ hai NOT_RUN,
+event metrics null. Không đổi executable code, giữ bằng chứng 259 tests
+T9.3; xem `CCTV_RUNTIME_BENCHMARK.md` và `CCTV_HANDOVER.md`.
 
 Mỗi task: code/module hoàn chỉnh → kiểm thử phù hợp và dữ liệu mẫu → tài liệu
 PowerShell → Conventional Commit → push. Chạy CLIP phục vụ và detector theo

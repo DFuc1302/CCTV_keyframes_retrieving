@@ -176,3 +176,28 @@ git add scripts/export_cctv_handover.py test_cctv_handover.py `
 git commit -m 'feat: add CCTV handover evidence package and reproduction guide'
 git push origin main
 ```
+
+## T9.4 — gói bằng chứng runtime hiện tại
+
+`outputs/demo-data/handover-t9-v1` sử dụng runtime T9.4 của app `9ff3006`,
+event benchmark pending và dispatch simulation; giữ gói lịch sử `handover-v1`.
+Export và resume ba JSON đạt, SHA/mtime giữ nguyên. Checklist máy thứ hai
+vẫn `NOT_RUN`; event metrics vẫn null do chưa có khoảng được review thật.
+Chi tiết latency và kiểm chứng: `CCTV_RUNTIME_BENCHMARK.md`, mục T9.4.
+
+Để xuất gói từ phép đo mới ở hướng dẫn T9.4:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\export_cctv_handover.py `
+  --manifest configs\cctv.demo.json `
+  --runtime-dir outputs\demo-data\runtime-benchmark-t9-v2 `
+  --event-dir outputs\demo-data\event-benchmark-pending-v1 `
+  --dispatch-dir outputs\demo-data\dispatch-simulation-v1 `
+  --output outputs\demo-data\handover-t9-v2
+
+git diff --check
+git add docs/CCTV_RUNTIME_BENCHMARK.md docs/CCTV_HANDOVER.md `
+  docs/CCTV_PROGRESS.md docs/CCTV_PROJECT_REPORT.md
+git commit -m 'docs: record runtime benchmark and handover after overlay integration'
+git push origin main
+```

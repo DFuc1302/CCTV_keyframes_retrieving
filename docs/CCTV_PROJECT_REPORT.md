@@ -296,3 +296,19 @@ readyState=4, không console warn/error/media error. Kết quả là technical
 playback, không là đánh giá chất lượng tracking. Latency cũ là historical
 reports gắn code cũ; không chấm như benchmark của app composition mới.
 Code/lệnh và giới hạn: `CCTV_OVERLAY_UI.md`.
+
+## Bổ sung T9.4 — runtime và gói bàn giao sau overlay
+
+Phép đo mới app `9ff3006` ngày 2026-10-01 dùng một CUDA/FP16 server,
+top-12, 24 warmup và 120 measured requests, không lỗi. Text P50/P95/mean
+=52,18/56,18/52,24 ms; image=128,07/139,86/129,28 ms. Model-lifetime
+allocator peak allocated=843,79 MiB, reserved=862 MiB. Đây là latency
+HTTP cục bộ, chưa đo relevance/nhận diện sự kiện hoặc kết luận regression.
+
+Report mới `runtime-benchmark-t9-v1` gắn code/index/model/session; giữ
+report lịch sử. Resume không HTTP, hai runtime JSON giữ SHA/mtime;
+56 protected files gồm raw và artifacts kiểm tra không đổi. Gói mới
+`handover-t9-v1` export/resume ba JSON đạt, second-machine NOT_RUN và
+event metrics null. T9.4 chỉ cập nhật bằng chứng/tài liệu, không đổi code;
+core suite 259 tests đạt tại T9.3. Quy trình: `CCTV_RUNTIME_BENCHMARK.md`
+và `CCTV_HANDOVER.md`.

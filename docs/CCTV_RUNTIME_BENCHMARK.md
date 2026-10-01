@@ -127,3 +127,50 @@ reserved=862 MiB. Resume giữ SHA/mtime hai JSON, không gửi HTTP mới.
 Core suite hiện đạt 208 tests; nghiệm thu HTTP/browser xem
 `CCTV_DEMO_ACCEPTANCE.md`. Đây là lần đo mô tả cục bộ; không kết luận
 regression hoặc cải thiện do UI khi điều kiện nhiệt/power/load chưa kiểm soát.
+
+## T9.4 — phép đo mới sau tích hợp tracking overlay
+
+Ngày 2026-10-01, app tại commit `9ff3006`, một server CUDA/FP16 và một
+client tuần tự trên loopback 8087. Cùng workload top-12: sáu text, sáu image,
+hai warmup/case và mười samples/case. 24 warmup và 120 request đo đạt,
+không lỗi; không đo cold start hoặc chất lượng relevance.
+
+| Query | Mẫu đo | P50 (ms) | P95 (ms) | Mean (ms) |
+| --- | ---: | ---: | ---: | ---: |
+| Text | 60 | 52,18 | 56,18 | 52,24 |
+| Image | 60 | 128,07 | 139,86 | 129,28 |
+
+Model-lifetime allocator peak: allocated=843,79 MiB, reserved=862 MiB;
+không đại diện tổng VRAM hoặc peak riêng từng request. Report gắn SHA của
+app/index/model và session `1ddd6369-e973-4a77-bd4b-f7285bb172b9`.
+Report cũ T6.2/T7.3 được giữ nguyên. Không suy cải thiện/regression từ các
+lần đo khi nhiệt, power và tải nền chưa được kiểm soát.
+
+Artifacts cục bộ (không push data lên GitHub):
+
+- `outputs/demo-data/runtime-benchmark-t9-v1/runtime_report.json`
+- `outputs/demo-data-review/runtime-t9-verification.json`
+- `outputs/tests/t9-runtime-verification.txt`
+
+Resume kiểm chứng bằng chặn constructor HTTP client: không HTTP mới,
+SHA/mtime hai JSON runtime giữ nguyên. SHA/mtime 56 protected files gồm
+sáu raw videos, manifest/workload, index, tracking, traffic, overlay,
+event/dispatch và các report/bàn giao lịch sử giữ nguyên. Gói bàn giao
+`handover-t9-v1` có ba JSON; resume cũng giữ SHA/mtime. Server của phép đo
+đã dừng sau kiểm tra để giải phóng GPU/cổng.
+
+Tái chạy: khởi động `Start-CctvDemo.ps1 -Port 8087` ở terminal thứ nhất;
+terminal thứ hai dùng output mới cho phép đo mới:
+
+```powershell
+Set-Location 'D:\Project ExploreCS\CCTV_keyframes_retrieving'
+.\.venv\Scripts\python.exe -m pipeline.cctv.benchmark_runtime `
+  --manifest configs\cctv.demo.json `
+  --workload configs\cctv.runtime-benchmark.demo.json `
+  --index-dir outputs\demo-data\search-index `
+  --output outputs\demo-data\runtime-benchmark-t9-v2 `
+  --url http://127.0.0.1:8087
+```
+
+Core suite 259 tests đã đạt tại T9.3; T9.4 không đổi executable code,
+kiểm chứng bằng benchmark/resume/export thực tế và kiểm tra diff tài liệu.
