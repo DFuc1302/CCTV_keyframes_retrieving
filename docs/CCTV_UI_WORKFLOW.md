@@ -19,7 +19,8 @@ Nếu cổng thuộc ứng dụng khác, launcher báo lỗi và giữ nguyên �
    thả trùng đỉnh khác hoặc hủy thao tác giữ vị trí cũ. Bấm **Lưu camera và ROI**
    để lưu các thay đổi; kéo đỉnh chưa tự ghi cấu hình lên server.
    Nút **Toàn ảnh để chạy thử** hỗ trợ kiểm thử nhanh bằng bàn phím.
-   Khoảng tracking dùng chung cho mọi video: mặc định 10 giây, tối đa 60 giây.
+   Mặc định tracking toàn video, lấy một frame mỗi 0,5 giây. Chế độ theo khoảng
+   dùng chung cho mọi video, dài 1–60 giây; vẫn có lựa chọn xử lý mọi frame.
    Lưu chuẩn bị. ROI giữ trạng thái pending.
 3. Bấm **Chạy toàn bộ pipeline**. Nếu thiếu weights, dùng nút tải mô hình.
    Theo dõi tiến độ, nhật ký; **Dừng** giữ checkpoint và **Thử lại** tiếp tục

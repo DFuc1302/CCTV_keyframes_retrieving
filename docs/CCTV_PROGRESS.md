@@ -1,8 +1,32 @@
 # Đối chiếu kế hoạch và tiến độ CCTV
 
+## Cập nhật: toàn video, tốc độ và Colab — 2026-10-01
+
+| Task trong plan mới | Trạng thái |
+| --- | --- |
+| Timing từng stage | Hoàn thành; có trong run và báo cáo ZIP qua UI |
+| Toàn video/theo khoảng; 2 FPS/mọi frame | Hoàn thành, mặc định toàn video + 2 FPS |
+| Batch YOLO và reuse preprocessing đã kiểm chứng | Hoàn thành; FP16, batch tối đa 4, OOM fallback |
+| Export job/import result qua UI | Hoàn thành local; checksum, rebase và activation đã kiểm thử |
+| Notebook Colab/Drive checkpoint | Đã tạo, kiểm tra cú pháp; stage/segment recovery đã test bằng fixture |
+| So sánh GPU local/Colab | Có đo tracking local; Colab GPU/benchmark **NOT_RUN** |
+
+Commits: `7f8fb3f`, `69a103e`, `373151d`, `b6095a3`, `a610758`.
+279 core tests đạt, pip check/compile/CUDA FP16/NMS đạt; 61 tests focused sau
+định dạng và 10 tests workflow/cloud cuối đạt. Node syntax/ROI drag đạt.
+Integration GPU qua API UI: video test-pattern 12 giây, 24 sampled frames
+đến PTS 11,52; pipeline đầy đủ, search và local export/import activation đạt.
+Raw SHA/mtime giữ nguyên. Browser kiểm tra scope full/range và controls mới,
+không có lỗi console; server kiểm thử 8088 đã dừng.
+
+Chưa chạy GPU Colab, chưa đo CCTV dài thật, chưa có benchmark chất lượng mới.
+Bạn cần đăng nhập/cấp quyền Drive, xác minh quota và chạy notebook. M8 giữ
+PENDING, máy thứ hai NOT_RUN. Chi tiết thao tác, thiết kế, giới hạn và evidence:
+[Toàn video và Colab](CCTV_FULLVIDEO_COLAB.md).
+
 Ưu tiên hiện tại theo người dùng: **toàn bộ dữ liệu là demo; xử lý đầy đủ qua
 một UI thân thiện**. M11 triển khai trong `CCTV_UI_WORKFLOW.md`: nhập demo/upload,
-gán camera/ROI, tracking bounded, pipeline tuần tự, tra cứu/evidence, review
+gán camera/ROI, tracking toàn video hoặc theo khoảng, pipeline tuần tự, tra cứu/evidence, review
 demo, proposal mô phỏng, báo cáo ZIP và launcher Windows một click.
 Smoke thực video mới đạt 12/12 stage; M8 và các gate chất lượng M10 vẫn pending.
 

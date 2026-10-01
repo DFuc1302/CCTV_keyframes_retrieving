@@ -6,6 +6,10 @@ Project kế thừa hệ thống tìm kiếm video đa phương thức, mở r�
 
 Hướng dẫn runtime Windows: `docs/WINDOWS_SETUP.md`.
 
+Tracking toàn video mỗi 0,5 giây, tối ưu tốc độ và Colab batch qua UI:
+[hướng dẫn](docs/CCTV_FULLVIDEO_COLAB.md),
+[notebook Colab](https://colab.research.google.com/github/DFuc1302/CCTV_keyframes_retrieving/blob/main/notebooks/CCTV_Colab.ipynb).
+
 Tiến độ đối chiếu kế hoạch và task tiếp theo: `docs/CCTV_PROGRESS.md`.
 
 Schema detections/tracks/traffic windows và ROI theo camera: `docs/CCTV_TRAFFIC.md`.
