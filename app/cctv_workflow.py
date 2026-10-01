@@ -9,6 +9,7 @@ import os
 import subprocess
 import sys
 import threading
+import time
 import uuid
 import zipfile
 from collections.abc import Callable
@@ -545,7 +546,14 @@ class Workflow:
                 job.update(stage=name, completed=index)
                 with self.lock:
                     save_json(folder / "job.json", job)
-                self.command(module, args, run)
+                started = time.perf_counter()
+                try:
+                    self.command(module, args, run)
+                finally:
+                    timing = run / "stage-timings.jsonl"
+                    with timing.open("a", encoding="utf-8") as handle:
+                        handle.write(json.dumps(dict(stage=name, module=module,
+                            elapsed_sec=round(time.perf_counter()-started, 3))) + "\n")
             if not job["download"]:
                 if self.cancelled.is_set():
                     raise InterruptedError("Đã dừng trước khi kích hoạt kết quả.")
