@@ -28,7 +28,7 @@ function workflowDraw() {
     workflowContext.strokeStyle = "#00ffbb"; workflowContext.lineWidth = 3; workflowContext.stroke();
     points.forEach(([x,y]) => { workflowContext.beginPath(); workflowContext.arc(x*640,y*360,5,0,2*Math.PI); workflowContext.fillStyle="#fff"; workflowContext.fill(); });
   }
-  $("workflow-roi-status").textContent = `${workflowCamera()} · ${points.length} đỉnh · Vùng tự đóng, không click lại điểm đầu · ROI dùng chạy thử, chưa phê duyệt độc lập`;
+  $("workflow-roi-status").textContent = `${workflowCamera()} · ${points.length} đỉnh · Giữ và kéo đỉnh để chỉnh · Vùng tự đóng · ROI dùng chạy thử, chưa phê duyệt độc lập`;
 }
 async function workflowFrame() {
   if (!workflowData || !$("workflow-roi-video").value) return;
@@ -117,7 +117,44 @@ $("workflow-files").onchange=()=>workflowAction(async()=>{
 });
 $("workflow-frame").onclick=()=>workflowAction(workflowFrame);
 $("workflow-roi-video").onchange=()=>workflowAction(workflowFrame);
+let workflowDrag=null, workflowSkipClick=false;
+function workflowPoint(event) {
+  const rect=workflowCanvas.getBoundingClientRect();
+  return [Math.max(0,Math.min(1,(event.clientX-rect.left)/rect.width)),Math.max(0,Math.min(1,(event.clientY-rect.top)/rect.height))];
+}
+function workflowNear(points, point, radius, excluded=-1) {
+  const rect=workflowCanvas.getBoundingClientRect();
+  return points.findIndex(([x,y],i)=>i!==excluded && Math.hypot((x-point[0])*rect.width,(y-point[1])*rect.height)<radius);
+}
+function workflowEndDrag(event) {
+  if(!workflowDrag || event.pointerId!==workflowDrag.pointerId) return;
+  const drag=workflowDrag; workflowDrag=null;
+  if(event.type!=="pointerup" || workflowBusy || workflowUploading || workflowNear(drag.points,drag.points[drag.index],6,drag.index)>=0) {
+    drag.points[drag.index]=drag.original;
+    if(event.type==="pointerup" && !workflowBusy && !workflowUploading) workflowProblem("Không đặt hai đỉnh trùng nhau. Đỉnh đã trở về vị trí cũ.");
+  }
+  workflowSkipClick=true; workflowCanvas.style.cursor="crosshair";
+  if(workflowCanvas.hasPointerCapture(event.pointerId)) workflowCanvas.releasePointerCapture(event.pointerId);
+  workflowDraw();
+}
+workflowCanvas.onpointerdown=event=>{
+  if(workflowDrag || workflowBusy || workflowUploading || event.button!==0) return;
+  workflowSkipClick=false;
+  const points=workflowRois[workflowCamera()] || [], index=workflowNear(points,workflowPoint(event),10);
+  if(index<0) return;
+  workflowDrag={points,index,original:[...points[index]],pointerId:event.pointerId};
+  workflowProblem(""); workflowCanvas.setPointerCapture(event.pointerId); workflowCanvas.style.cursor="grabbing";
+  event.preventDefault();
+};
+workflowCanvas.onpointermove=event=>{
+  if(workflowDrag && event.pointerId===workflowDrag.pointerId) {
+    if(workflowBusy || workflowUploading) { workflowEndDrag(event); return; }
+    workflowDrag.points[workflowDrag.index]=workflowPoint(event); workflowDraw();
+  } else if(!workflowDrag) workflowCanvas.style.cursor=workflowNear(workflowRois[workflowCamera()] || [],workflowPoint(event),10)>=0 ? "grab" : "crosshair";
+};
+workflowCanvas.onpointerup=workflowCanvas.onpointercancel=workflowCanvas.onlostpointercapture=workflowEndDrag;
 workflowCanvas.onclick=event=>{
+  if(workflowSkipClick) { workflowSkipClick=false; return; }
   if(workflowBusy || workflowUploading || event.detail>1) return;
   const rect=workflowCanvas.getBoundingClientRect(), x=(event.clientX-rect.left)/rect.width, y=(event.clientY-rect.top)/rect.height;
   const points=workflowRois[workflowCamera()] ||= [];

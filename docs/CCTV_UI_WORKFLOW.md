@@ -14,6 +14,10 @@ Nếu cổng thuộc ứng dụng khác, launcher báo lỗi và giữ nguyên �
 1. Bấm **Dùng demo có sẵn**, hoặc **Tạo bộ upload** rồi chọn video H.264.
    Tối đa sáu video, mỗi video 1 GiB. Video gốc không bị sửa.
 2. Gán camera; chọn ảnh tham chiếu, click ít nhất ba đỉnh ROI cho từng camera.
+   Giữ chuột trên đỉnh và kéo để chỉnh theo vùng đường; thả chuột để kết thúc.
+   Vùng tự đóng, không cần click lại điểm đầu. Kéo ra ngoài ảnh sẽ dừng ở biên;
+   thả trùng đỉnh khác hoặc hủy thao tác giữ vị trí cũ. Bấm **Lưu camera và ROI**
+   để lưu các thay đổi; kéo đỉnh chưa tự ghi cấu hình lên server.
    Nút **Toàn ảnh để chạy thử** hỗ trợ kiểm thử nhanh bằng bàn phím.
    Khoảng tracking dùng chung cho mọi video: mặc định 10 giây, tối đa 60 giây.
    Lưu chuẩn bị. ROI giữ trạng thái pending.
@@ -56,6 +60,7 @@ ZIP tải bằng nút UI chứa report JSON/Markdown và logs. Windows regressio
 Set-Location 'D:\Project ExploreCS\CCTV_keyframes_retrieving'
 .\scripts\Test-Windows.ps1
 node --check .\static\cctv\workflow.js
+node .\scripts\test_cctv_roi.cjs
 git diff --check
 git add app/cctv_workflow.py static/cctv/index.html static/cctv/workflow.js test_cctv_workflow.py
 git commit -m 'feat: expose T10 demo verification and reports in the UI'

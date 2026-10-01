@@ -23,6 +23,12 @@ commit triển khai được ghi trong Git history.
 
 ## Cách đọc kế hoạch
 
+ROI UI hỗ trợ giữ và kéo đỉnh bằng Pointer Events native, capture pointer,
+tọa độ chuẩn hóa theo kích thước ảnh đang hiển thị và chặn sửa khi worker bận.
+Kéo ngoài ảnh được clamp về biên; duplicate/cancel rollback, click sau drag
+không thêm đỉnh. Thay đổi chỉ lưu khi bấm Lưu camera và ROI. Kiểm tra runnable:
+`node scripts/test_cctv_roi.cjs` đạt; JS syntax đạt. Không thêm dependencies.
+
 Sửa lỗi nhập ROI: UI bỏ qua double-click và đỉnh đã có trong phạm vi 6 pixel,
 ghi rõ vùng tự đóng; backend giữ validator geometry và trả hướng dẫn tiếng
 Việt thay stack Pydantic. Polygon lỗi không ghi đè preparation đã lưu.

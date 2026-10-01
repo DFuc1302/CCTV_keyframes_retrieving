@@ -40,8 +40,8 @@
           <label for="workflow-duration">Độ dài (giây)</label><input id="workflow-duration" type="number" min="1" max="60" step="0.1" value="10">
           <label for="workflow-roi-video">Video tham chiếu ROI</label><select id="workflow-roi-video"></select>
           <button id="workflow-frame" type="button">Xem ảnh tại thời điểm bắt đầu</button>
-          <canvas id="workflow-canvas" width="640" height="360" tabindex="0" aria-label="Vẽ ROI: click các đỉnh của vùng đường; có thể dùng nút Toàn ảnh khi chỉ chạy thử"></canvas>
-          <p id="workflow-roi-status" class="hint" role="status">Click tối thiểu 3 đỉnh khác nhau. Vùng tự đóng; không click lại điểm đầu. ROI chỉ dùng chạy thử, chưa phê duyệt độc lập.</p>
+          <canvas id="workflow-canvas" width="640" height="360" tabindex="0" style="touch-action:none" aria-label="Vẽ ROI: click để thêm đỉnh, giữ và kéo đỉnh để di chuyển; có thể dùng nút Toàn ảnh khi chỉ chạy thử"></canvas>
+          <p id="workflow-roi-status" class="hint" role="status">Click để thêm đỉnh; giữ và kéo đỉnh để chỉnh vùng đường. Vùng tự đóng; không click lại điểm đầu. ROI chỉ dùng chạy thử, chưa phê duyệt độc lập.</p>
           <div class="workflow-actions"><button id="workflow-undo" type="button">Bỏ đỉnh cuối</button><button id="workflow-clear" type="button">Vẽ lại</button><button id="workflow-full" type="button">Toàn ảnh để chạy thử</button></div>
           <label><input id="workflow-synthetic" type="checkbox" checked> Thêm case tổng hợp để thử review/phân bổ</label>
           <button id="workflow-save" type="button" class="primary">Lưu camera và ROI</button>
