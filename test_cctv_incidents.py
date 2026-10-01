@@ -20,6 +20,20 @@ from pipeline.cctv.ingest import digest, save_json
 
 
 class RuleTests(unittest.TestCase):
+    def test_sampled_ordinals_do_not_reset_every_observation(self):
+        frames, roi, config = fixture("moving_stop")
+        sparse = []
+        for frame in frames:
+            value = frame.model_dump(mode="json")
+            value["locator"]["frame_idx"] *= 12
+            for observation in value["observations"]:
+                observation["locator"]["frame_idx"] *= 12
+            sparse.append(incidents.TrackFrame.model_validate_json(json.dumps(value)))
+        self.assertTrue(
+            screen_video(sparse, roi, config, "0" * 64, sample_interval=0.5)
+        )
+        self.assertFalse(screen_video(sparse, roi, config, "0" * 64))
+
     def screen(self, name):
         frames, roi, config = fixture(name)
         return screen_video(frames, roi, config, "0" * 64, synthetic=True)

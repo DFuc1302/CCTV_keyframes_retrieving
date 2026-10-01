@@ -124,6 +124,7 @@ def summarize_video(
     start: float,
     end: float | None,
     draft: bool,
+    sample_interval: float = 0.0,
 ) -> list[dict]:
     """Integrate sample-and-hold only over observed adjacent PTS intervals."""
     if not draft and roi.status != "approved":
@@ -162,7 +163,11 @@ def summarize_video(
             stamp = loc.timestamp_sec
             if stamp < start or (end is not None and stamp >= end):
                 raise ValueError("Frame outside tracking clip bounds")
-            if previous and (stamp <= previous[0] or loc.frame_idx != previous[1] + 1):
+            if previous and (
+                stamp <= previous[0]
+                or loc.frame_idx <= previous[1]
+                or (not sample_interval and loc.frame_idx != previous[1] + 1)
+            ):
                 raise ValueError(
                     "Frames must have increasing PTS and consecutive ordinals"
                 )
@@ -493,6 +498,7 @@ def process_windows(
                             start,
                             None if duration is None else start + duration,
                             draft,
+                            tracking["signature"].get("sample_interval_sec", 0),
                         )
                         payload = canonical(rows)
                         with target:

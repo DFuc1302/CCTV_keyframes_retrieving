@@ -104,6 +104,7 @@ def screen_video(
     config: IncidentConfig,
     provenance: str,
     synthetic: bool = False,
+    sample_interval: float = 0.0,
 ) -> list[IncidentEvent]:
     """One candidate per continuous stop, reset on missing/weak/outside observations."""
     if roi.polygon is None:
@@ -127,7 +128,10 @@ def screen_video(
             if dt <= 0 or loc.frame_idx <= previous.locator.frame_idx:
                 raise ValueError("Unordered source frames")
             if (
-                loc.frame_idx != previous.locator.frame_idx + 1
+                (
+                    not sample_interval
+                    and loc.frame_idx != previous.locator.frame_idx + 1
+                )
                 or dt > config.max_gap_sec
                 or frame.segment_id != previous.segment_id
                 or (frame.width, frame.height) != (previous.width, previous.height)
@@ -417,7 +421,12 @@ def process_incidents(
                                     if (
                                         not start
                                         <= stamp
-                                        < (start + ts["signature"]["duration_sec"] if ts["signature"]["duration_sec"] is not None else float("inf"))
+                                        < (
+                                            start + ts["signature"]["duration_sec"]
+                                            if ts["signature"]["duration_sec"]
+                                            is not None
+                                            else float("inf")
+                                        )
                                     ):
                                         raise ValueError("Frame outside processed clip")
                                     yield frame
@@ -434,6 +443,9 @@ def process_incidents(
                                 roi_map[sources[vid].camera_id],
                                 config,
                                 checksum(signature),
+                                sample_interval=ts["signature"].get(
+                                    "sample_interval_sec", 0
+                                ),
                             )
                         ]
                         state["videos"][vid] = dict(

@@ -98,6 +98,15 @@ class WindowTests(unittest.TestCase):
             frames, self.roi, self.config, self.threshold, 0.0, end, True
         )
 
+    def test_sampled_frames_keep_source_ordinals(self):
+        rows = [frame(n * 12, stamp=n * 0.5) for n in range(6)]
+        windows = summarize_video(
+            rows, self.roi, self.config, self.threshold, 0, 3, True, 0.5
+        )
+        self.assertGreater(len(windows), 0)
+        with self.assertRaises(ValueError):
+            self.summarize(rows, end=3)
+
     def test_union_occupancy_does_not_double_count_overlapping_boxes(self):
         raster = RasterROI(self.roi, 100, 100, 100)
         count, occupancy, _ = raster.measure(

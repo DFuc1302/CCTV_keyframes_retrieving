@@ -313,9 +313,9 @@ def build_events(
         ):
             raise ValueError("Signal source/run mismatch")
         clip_start = tm["signature"]["start_sec"]
-        if (
-            w.start_sec < clip_start
-            or w.end_sec > clip_start + tm["signature"]["duration_sec"] + 1e-6
+        if w.start_sec < clip_start or (
+            tm["signature"]["duration_sec"] is not None
+            and w.end_sec > clip_start + tm["signature"]["duration_sec"] + 1e-6
         ):
             raise ValueError("Signal outside tracking clip")
         rows = grouped.setdefault(w.video_id, [])
