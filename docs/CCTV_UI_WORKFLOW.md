@@ -31,6 +31,39 @@ Nếu cổng thuộc ứng dụng khác, launcher báo lỗi và giữ nguyên �
 
 ## Thiết kế và giới hạn
 
+### Tự kiểm chứng T10
+
+Sau bước pipeline, bấm **Tự kiểm chứng T10** để chạy năm kiểm tra kỹ thuật
+trên kết quả đã có: inventory, ROI/schema, evaluator fixture tổng hợp, CPU
+rules/solver/workflow tests và HTTP smoke. UI hiển thị tiến độ 0–5, lỗi và
+các phần pending. **Dừng** dừng worker; **Thử lại T10** tiếp tục checkpoint
+cùng recipe. Nếu code/input/server đổi, bấm **Tự kiểm chứng T10** tạo lượt mới.
+
+Không inference lại, không tự duyệt ROI/groups hay tạo nhãn độc lập. Một worker
+dùng chung với pipeline; nếu đổi dataset, model phục vụ được thay tuần tự.
+Kết quả kiểm chứng có metadata riêng, giữ pipeline job/run. Khi pipeline run
+đổi, kết quả cũ hiển thị stale và cần kiểm chứng lại.
+**Tải báo cáo ZIP** thêm `t10/report.json`, `t10/report.md`, checkpoint và
+logs nhỏ của lượt đã hoàn tất cho run hiện tại. M8 pending, chất lượng footage
+chưa đo và máy thứ hai NOT_RUN vẫn hiển thị rõ.
+
+Kiểm chứng bổ sung ngày 2026-10-01: năm bước đạt trên M11 browser smoke,
+46 CPU tests trong worker; Dừng → Thử lại T10 giữ cùng job và hoàn tất 5/5.
+ZIP tải bằng nút UI chứa report JSON/Markdown và logs. Windows regression:
+268 core tests đạt, pip check/compile/CUDA FP16/NMS/JS syntax đạt.
+
+```powershell
+Set-Location 'D:\Project ExploreCS\CCTV_keyframes_retrieving'
+.\scripts\Test-Windows.ps1
+node --check .\static\cctv\workflow.js
+git diff --check
+git add app/cctv_workflow.py static/cctv/index.html static/cctv/workflow.js test_cctv_workflow.py
+git commit -m 'feat: expose T10 demo verification and reports in the UI'
+git add docs/CCTV_UI_WORKFLOW.md docs/CCTV_M10_EVALUATION.md docs/CCTV_PROGRESS.md docs/CCTV_PROJECT_REPORT.md
+git commit -m 'docs: distinguish automated T10 demo checks from pending evaluation'
+git push origin main
+```
+
 Backend gọi lại 12 CLI stage hiện có, không thay schema hoặc guard bảo vệ
 dữ liệu. Dataset/job dùng JSON; một worker local tuần tự giải phóng CLIP
 phục vụ trước khi index/tracking dùng GPU. CLIP FP16 batch 4, tracking theo

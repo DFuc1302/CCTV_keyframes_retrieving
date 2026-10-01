@@ -314,6 +314,28 @@ git push origin main
 
 ## M10 — triển khai theo kế hoạch đánh giá
 
+### Cập nhật tự động hóa demo T10 — 2026-10-01
+
+Đã triển khai tuyến **Tự kiểm chứng T10** qua UI, dùng lại run hoàn tất:
+inventory, ROI/schema, evaluator fixture, CPU rules/solver/workflow tests,
+HTTP smoke. Kiểm chứng có job/checkpoint riêng, dùng chung một worker với
+pipeline, hỗ trợ dừng/retry và JSON/Markdown trong ZIP. Không inference lại
+hoặc tự phê duyệt nội dung/nhãn/ROI. Pipeline run đổi làm kết quả cũ stale.
+
+Smoke thực trên dataset **M11 browser smoke**: năm bước đạt, 46 CPU tests
+trong worker đạt. Browser đã kiểm thử Dừng → Thử lại T10 cùng job ID,
+hoàn tất 5/5 và tải ZIP có `t10/report.json`/`report.md`/logs.
+Regression Windows: **268 core tests đạt** trong 90,089 giây; pip check,
+compile, CUDA FP16/NMS và `node --check static/cctv/workflow.js` đạt.
+Nguồn pipeline/raw được verifier kiểm tra SHA/mtime trước và sau.
+
+Trạng thái kỹ thuật: `PASSED_DEMO_CHECKS`, `quality_metrics=null`.
+Trạng thái độc lập: T10.1 content/groups, T10.2 ROI approval, T10.3 split,
+T10.5 calibration, T10.6 chất lượng vẫn pending; T10.4/M8 PENDING;
+T10.7 máy thứ hai NOT_RUN. T10.8 có báo cáo kỹ thuật tự sinh, chưa rehearsal.
+Chi tiết thao tác: [UI workflow](CCTV_UI_WORKFLOW.md); gates đánh giá:
+[M10](CCTV_M10_EVALUATION.md). Log regression: `outputs/tests/core-tests.txt`.
+
 Chi tiết protocol/tasks/gates và PowerShell: `CCTV_M10_EVALUATION.md`.
 T10.1 technical inventory đã chạy trên sáu MOV hiện có, 3.614,160 giây
 container duration, same raw SHA như inventory gốc. Năm JSON resume giữ

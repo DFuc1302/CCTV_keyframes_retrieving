@@ -18,6 +18,11 @@ traffic windows, đóng gói evidence và review, rule nghi sự cố,
 solver nhân lực mô phỏng, event evaluator và phép đo HTTP latency.
 M11 cho phép chọn demo/upload video, gán camera/ROI, chạy pipeline, review
 demo, tính proposal và tải báo cáo trong một UI; mở bằng `Open-CctvDemo.cmd`.
+Tuyến T10 bổ sung nút tự kiểm chứng kết quả đã có, năm bước kỹ thuật,
+dừng/retry và report JSON/Markdown trong ZIP. Smoke browser đã đạt 5/5,
+dừng/retry cùng job và tải báo cáo thành công; 268 core tests Windows đạt.
+Đây là kiểm tra khả năng xử lý demo; chất lượng footage vẫn chưa đo,
+M8 pending và máy thứ hai NOT_RUN.
 Chưa có multimodal fusion OCR/ASR cho CCTV hoặc hệ thống
 nhận diện tai nạn đã kiểm định. Các kết quả này là nền demo có thể kiểm thử.
 

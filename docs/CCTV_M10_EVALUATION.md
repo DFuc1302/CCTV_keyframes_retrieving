@@ -2,6 +2,27 @@
 
 ## Phạm vi và cập nhật nguồn lực
 
+### Tuyến tự kiểm chứng demo qua UI
+
+Theo yêu cầu mới, mục tiêu hiện tại là chứng minh dữ liệu demo đi qua một UI.
+Sau khi pipeline hoàn tất, bấm **Tự kiểm chứng T10**. Worker dùng lại output,
+không chạy lại CLIP/YOLO hoặc thay quyết định review. Năm bước gồm inventory,
+kiểm tra ROI/schema, phép tính evaluator trên fixture tổng hợp, CPU tests
+cho rules/solver/workflow và HTTP smoke trên dataset đang phục vụ.
+
+`scripts/verify_cctv_t10.py` tái sử dụng các verifier hiện có. Checkpoint và
+checksum cho phép **Dừng → Thử lại T10** bỏ qua bước đã đạt; code/input/server
+đổi cần lượt kiểm chứng mới. Mỗi lượt nằm riêng trong
+`outputs/ui-workflow/<dataset>/t10-*/`, giữ nguyên pipeline run và raw.
+JSON/Markdown cùng log nhỏ được thêm vào **Tải báo cáo ZIP**.
+
+`PASSED_DEMO_CHECKS` chỉ xác nhận các kiểm tra kỹ thuật đã đạt. Report giữ
+`demo_only=true`, `operational_ready=false`, `real_accuracy_measured=false`,
+`quality_metrics=null`, M8 `PENDING`, máy thứ hai `NOT_RUN`.
+T10.1 review/groups, T10.2 ROI approval, T10.3 split, T10.5 calibration và
+T10.6 chất lượng footage vẫn pending. Fixture metrics không phải accuracy CCTV.
+Các gates và protocol đánh giá độc lập bên dưới vẫn áp dụng khi có dữ liệu/nhãn.
+
 M9 hoàn tất; M10 đánh giá congestion/road-incident trước, chưa thêm benchmark
 relevance retrieval. Ngày 2026-10-01 người dùng xác nhận chỉ một reviewer,
 giữ M8 pending và chờ thêm thông tin. Không dùng hai tên/slots của cùng một
