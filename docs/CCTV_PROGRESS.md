@@ -39,7 +39,7 @@ Không suy số tuần thực tế đã làm hoặc phần trăm hoàn thành t�
 | M6: đánh giá và bàn giao | T6.1–T6.3 có công cụ/tài liệu | Event evaluator, frozen HTTP latency, báo cáo và package bàn giao đã có; nhãn thật và chạy máy thứ hai còn mở |
 | M7: tích hợp demo sự kiện/điều phối | T7.1–T7.3 đạt kỹ thuật cục bộ | Event/evidence, phân bổ mô phỏng, HTTP/browser smoke và runtime mới có; chưa nghiệm thu chất lượng hoặc máy thứ hai |
 | M8: chuẩn bị review/nhãn độc lập | T8.1–T8.3 có công cụ pending | Tư liệu sạch, notes riêng, comparison và explicit adjudication/export; chưa review thật hoặc tạo ground truth |
-| M9: tiện ích chạy thử | T9.1–T9.6 đạt kỹ thuật cục bộ | HTTP smoke, tracking overlay API/UI, runtime và rebuild; smoke hỗ trợ journal pending, chưa nghiệm thu chất lượng |
+| M9: tiện ích chạy thử | Hoàn tất T9.1–T9.6 | HTTP smoke, tracking overlay API/UI, runtime và rebuild đã kiểm chứng cục bộ; chất lượng/nhãn thật thuộc các mốc còn mở |
 
 Sau hai bản sửa launcher (encoding PowerShell và cổng bận), core suite đã chạy
 lại bằng Windows PowerShell 5.1: **47 tests đạt**, runtime CUDA FP16/NMS đạt.
@@ -257,6 +257,41 @@ Không sửa raw/review/ROI hoặc logic inference/dispatch. Các mốc còn c�
 đầu vào thực vẫn là review/labels/groups/ROI và máy thứ hai; không bổ sung
 module mới chỉ để tăng số task.
 Sau T9.6: **260 core tests đạt**, pip check/compile/CUDA FP16/NMS đạt.
+
+## Đóng milestone M9 — 2026-10-01
+
+Toàn bộ task T9 đã hoàn tất trong phạm vi chạy thử demo cục bộ:
+
+| Task | Commit triển khai | Kết quả nghiệm thu |
+| --- | --- | --- |
+| T9.1 | `23ffa86` | Managed HTTP smoke và shutdown server sở hữu |
+| T9.2 | `6efa11a` | Sáu MP4 overlay CPU, 1.501 frames/PTS verify và resume |
+| T9.3 | `9ff3006` | Overlay API/Range, traffic UI và browser source-offset playback |
+| T9.4 | `6138cfb` | 120 measured + 24 warmup không lỗi, runtime/handover resume |
+| T9.5 | `ecb9cc1` | Hướng dẫn rebuild assets, CLI/PowerShell và pending dispatch |
+| T9.6 | `ba35139` | Smoke không cần journals/report lịch sử; 260 core tests đạt |
+
+Đối chiếu cuối: report smoke T9.6 passed, sáu overlays/30 windows;
+SHA256 của 107 protected files trong report vẫn khớp files hiện tại.
+Không thay code sau bộ kiểm thử này; không cần thêm task T9 hoặc chạy lại
+inference để đóng milestone. Lệnh chạy lại demo:
+
+```powershell
+Set-Location 'D:\Project ExploreCS\CCTV_keyframes_retrieving'
+.\scripts\Test-CctvDemo.ps1 -RequireOverlays
+```
+
+M9 complete không đồng nghĩa toàn bộ đồ án đã nghiệm thu: các điều kiện
+review/labels/groups/ROI, chất lượng retrieval/events và máy thứ hai vẫn
+thuộc M3/M4/M6/M8; vị trí/nguồn lực thật của M5 chưa có. Giữ pending,
+không tự tạo phê duyệt hoặc kết quả thực nghiệm để đóng các mốc đó.
+
+```powershell
+git diff --check
+git add docs/CCTV_PROGRESS.md
+git commit -m 'docs: close T9 demo milestone with verified acceptance evidence'
+git push origin main
+```
 
 Mỗi task: code/module hoàn chỉnh → kiểm thử phù hợp và dữ liệu mẫu → tài liệu
 PowerShell → Conventional Commit → push. Chạy CLIP phục vụ và detector theo
