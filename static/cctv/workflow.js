@@ -28,7 +28,7 @@ function workflowDraw() {
     workflowContext.strokeStyle = "#00ffbb"; workflowContext.lineWidth = 3; workflowContext.stroke();
     points.forEach(([x,y]) => { workflowContext.beginPath(); workflowContext.arc(x*640,y*360,5,0,2*Math.PI); workflowContext.fillStyle="#fff"; workflowContext.fill(); });
   }
-  $("workflow-roi-status").textContent = `${workflowCamera()} · ${points.length} đỉnh · ROI dùng chạy thử, chưa phê duyệt độc lập`;
+  $("workflow-roi-status").textContent = `${workflowCamera()} · ${points.length} đỉnh · Vùng tự đóng, không click lại điểm đầu · ROI dùng chạy thử, chưa phê duyệt độc lập`;
 }
 async function workflowFrame() {
   if (!workflowData || !$("workflow-roi-video").value) return;
@@ -117,7 +117,15 @@ $("workflow-files").onchange=()=>workflowAction(async()=>{
 });
 $("workflow-frame").onclick=()=>workflowAction(workflowFrame);
 $("workflow-roi-video").onchange=()=>workflowAction(workflowFrame);
-workflowCanvas.onclick=event=>{ if(workflowBusy || workflowUploading) return; const rect=workflowCanvas.getBoundingClientRect(); const points=workflowRois[workflowCamera()] ||= []; if(points.length>=20) return; points.push([(event.clientX-rect.left)/rect.width,(event.clientY-rect.top)/rect.height]); workflowDraw(); };
+workflowCanvas.onclick=event=>{
+  if(workflowBusy || workflowUploading || event.detail>1) return;
+  const rect=workflowCanvas.getBoundingClientRect(), x=(event.clientX-rect.left)/rect.width, y=(event.clientY-rect.top)/rect.height;
+  const points=workflowRois[workflowCamera()] ||= [];
+  if(x<0 || x>1 || y<0 || y>1) return;
+  if(points.some(([px,py])=>Math.hypot((px-x)*rect.width,(py-y)*rect.height)<6)) { workflowProblem("Đỉnh này đã có. Vùng tự đóng; không cần click lại điểm đầu."); return; }
+  if(points.length>=20) { workflowProblem("Tối đa 20 đỉnh trên UI. Dùng Bỏ đỉnh cuối hoặc Vẽ lại để sửa."); return; }
+  workflowProblem(""); points.push([x,y]); workflowDraw();
+};
 $("workflow-undo").onclick=()=>{ workflowRois[workflowCamera()]?.pop(); workflowDraw(); };
 $("workflow-clear").onclick=()=>{ workflowRois[workflowCamera()]=[]; workflowDraw(); };
 $("workflow-full").onclick=()=>{ workflowRois[workflowCamera()]=[[0,0],[1,0],[1,1],[0,1]]; workflowDraw(); };

@@ -17,6 +17,7 @@ from pathlib import Path
 import av
 from fastapi import HTTPException, Request
 from fastapi.responses import Response
+from pydantic import ValidationError
 from starlette.concurrency import run_in_threadpool
 from tqdm import tqdm
 
@@ -230,9 +231,16 @@ class Workflow:
                     for c in cameras
                 ],
             )
-            TrafficConfig.model_validate_json(json.dumps(roi))
             if any(r["polygon"] is None for r in roi["cameras"]):
                 raise ValueError("Vẽ vùng đường cho mọi camera.")
+            try:
+                TrafficConfig.model_validate_json(json.dumps(roi))
+            except ValidationError as exc:
+                raise ValueError(
+                    "ROI chưa hợp lệ. Vẽ ít nhất 3 đỉnh khác nhau trong ảnh, "
+                    "không click lại điểm đầu để đóng vùng và không vẽ cạnh cắt nhau. "
+                    "Dùng Bỏ đỉnh cuối hoặc Vẽ lại để sửa."
+                ) from exc
             for video in data["videos"]:
                 video["camera_id"] = bindings[video["video_id"]]
             data["preparation"] = dict(

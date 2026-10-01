@@ -97,6 +97,17 @@ class WorkflowTests(unittest.TestCase):
             ).status_code,
             200,
         )
+        preparation = self.workflow.get(dataset)["preparation"]
+        polygon = payload["rois"]["CAM_1"]
+        payload["rois"]["CAM_1"] = polygon + [polygon[0]]
+        invalid_roi = self.client.post(
+            f"/cctv/workflow/{dataset}/prepare", json=payload, headers=self.origin
+        )
+        self.assertEqual(invalid_roi.status_code, 400)
+        self.assertIn("không click lại điểm đầu", invalid_roi.json()["detail"])
+        self.assertNotIn("pydantic", invalid_roi.json()["detail"])
+        self.assertEqual(self.workflow.get(dataset)["preparation"], preparation)
+        payload["rois"]["CAM_1"] = polygon
         payload["duration_sec"] = 61
         self.assertEqual(
             self.client.post(

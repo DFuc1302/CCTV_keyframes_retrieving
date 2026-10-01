@@ -23,6 +23,12 @@ commit triển khai được ghi trong Git history.
 
 ## Cách đọc kế hoạch
 
+Sửa lỗi nhập ROI: UI bỏ qua double-click và đỉnh đã có trong phạm vi 6 pixel,
+ghi rõ vùng tự đóng; backend giữ validator geometry và trả hướng dẫn tiếng
+Việt thay stack Pydantic. Polygon lỗi không ghi đè preparation đã lưu.
+Kiểm chứng: 12 workflow/traffic tests đạt, Node smoke duplicate/closing/
+double-click đạt, JavaScript syntax đạt. Không inference hoặc sửa dữ liệu.
+
 `KE_THUA_VA_PHAT_TRIEN_DO_AN.md`, mục 9, là lộ trình tám tuần cho video bài giảng.
 Các yêu cầu môn học/OCR/ASR trong đó chưa phải checklist nghiệm thu CCTV.
 Định hướng CCTV của người dùng thay thế phạm vi bài giảng, giữ kiến trúc kế thừa.
