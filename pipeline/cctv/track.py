@@ -14,6 +14,7 @@ from collections import deque
 from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
+from itertools import islice
 from types import SimpleNamespace
 from typing import Annotated, Iterator, Literal
 
@@ -48,6 +49,7 @@ class DecodedFrame:
     origin_pts: int
     time_base: tuple[int, int]
     image: Image.Image
+    inference_batch: tuple = ()
 
 
 def decoded_frames(
@@ -101,6 +103,20 @@ def sampled_frames(reader, start: float, interval: float):
         yield frame
 
 
+def batched_frames(reader, size: int):
+    """Keep at most four images alive; association still consumes ordered frames."""
+    while True:
+        group = list(islice(reader, size))
+        if not group:
+            return
+        group[0].inference_batch = tuple(f.image for f in group)
+        try:
+            yield from group
+        finally:
+            for frame in group:
+                frame.image.close()
+
+
 class TrackFrame(Contract):
     """Frame ledger keeps empty observations and verifies rational PTS consistency."""
 
@@ -150,39 +166,47 @@ class ByteTrackBackend(YoloDetector):
         self.tracker_class = BYTETracker
         self.tracker_config = tracker_config
         self.recipe_interval = recipe.get("sample_interval_sec", 0)
+        self.predictions = {}
+
+    def prefetch(self, images) -> None:
+        """Batch detection only; retry CUDA OOM with smaller uncommitted batches."""
+        import torch
+        if not images:
+            return
+        self.predictions.clear()
+        size = min(4, len(images))
+        offset = 0
+        while offset < len(images):
+            batch = images[offset:offset+size]
+            try:
+                with torch.inference_mode(), torch.amp.autocast("cuda", enabled=self.device=="cuda"):
+                    results = self.model.predict(source=list(batch), device=0 if self.device=="cuda" else "cpu",
+                        **self.precision_args, imgsz=640, conf=0.1, iou=0.7, max_det=300,
+                        classes=list(CLASSES), batch=len(batch), stream=False, verbose=False,
+                        save=False, rect=False)
+                if len(results) != len(batch):
+                    raise ValueError("Tracking detection batch coverage mismatch")
+                self.predictions.update({id(image): result.boxes.cpu().numpy() for image,result in zip(batch,results)})
+                del results
+                offset += len(batch)
+            except torch.cuda.OutOfMemoryError:
+                torch.cuda.empty_cache()
+                if size == 1:
+                    raise
+                size = max(1, size//2)
 
     def reset(self) -> None:
         """New segment resets Kalman state and IDs; IDs remain scoped by segment."""
-        self.tracker = self.tracker_class(SimpleNamespace(**self.tracker_config), frame_rate=round(1/self.recipe_interval) if getattr(self,"recipe_interval",0) else 30)
+        config = dict(self.tracker_config)
+        if self.recipe_interval:
+            config["track_buffer"] = max(1, round(1/self.recipe_interval))
+        self.tracker = self.tracker_class(SimpleNamespace(**config))
 
     def process(self, image: Image.Image) -> list[dict]:
         """Feed every decoded frame once; low-score boxes can rescue existing tracks."""
-        import torch
-
-        with (
-            torch.inference_mode(),
-            torch.amp.autocast("cuda", enabled=self.device == "cuda"),
-        ):
-            result = self.model.predict(
-                source=[image],
-                device=0 if self.device == "cuda" else "cpu",
-                **self.precision_args,
-                imgsz=640,
-                conf=0.1,
-                iou=0.7,
-                max_det=300,
-                classes=list(CLASSES),
-                batch=1,
-                stream=False,
-                verbose=False,
-                save=False,
-                save_txt=False,
-                save_crop=False,
-                show=False,
-                augment=False,
-                rect=False,
-            )[0]
-            tracks = self.tracker.update(result.boxes.cpu().numpy())
+        if id(image) not in self.predictions:
+            self.prefetch((image,))
+        tracks = self.tracker.update(self.predictions.pop(id(image)))
         output = []
         for row in tracks:
             if not np.isfinite(row).all():
@@ -422,6 +446,7 @@ def track_videos(
         raise ValueError("Tracker config must match the validated ByteTrack baseline")
     recipe, weights = model_recipe(model_path, device, 1, 1)
     recipe.update(
+        batch_size=4,
         sample_interval_sec=sample_interval,
         confidence=0.1,
         tracker_config_sha256=digest(tracker_path),
@@ -591,7 +616,7 @@ def track_videos(
                             desc=video.video_id, unit="frame", leave=False
                         ) as progress,
                     ):
-                        for frame in sampled_frames(reader, start, sample_interval):
+                        for frame in batched_frames(sampled_frames(reader, start, sample_interval), 4):
                             try:
                                 sid = f"seg-{int((frame.timestamp_sec - start) // segment_seconds):06d}"
                                 if sid != current:
@@ -633,6 +658,8 @@ def track_videos(
                                             "timestamp_sec": frame.timestamp_sec,
                                             "frame_idx": frame.frame_idx,
                                         }
+                                        if hasattr(backend, "prefetch"):
+                                            backend.prefetch(frame.inference_batch)
                                         observations = [
                                             {
                                                 "schema_version": 1,

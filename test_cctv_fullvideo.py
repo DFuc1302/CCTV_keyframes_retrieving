@@ -9,6 +9,7 @@ from PIL import Image
 import test_cctv_track as fixtures
 from pipeline.cctv.track import DecodedFrame, track_videos
 from pipeline.cctv import tracking_overlay
+from pipeline.cctv.track import ByteTrackBackend
 
 
 def reader(path, start, duration):
@@ -46,6 +47,28 @@ class FullVideoTests(unittest.TestCase):
         self.assertEqual(len(rows), 20)
         self.assertEqual(rows[0]["locator"]["frame_idx"], 300)
         self.assertEqual(rows[-1]["locator"]["timestamp_sec"], 39.5)
+
+    def test_batch_oom_fallback_and_sampled_tracker_buffer(self):
+        import torch
+        from unittest.mock import Mock
+        backend = ByteTrackBackend.__new__(ByteTrackBackend)
+        backend.device, backend.precision_args, backend.predictions = "cpu", {}, {}
+        backend.recipe_interval = 0.5
+        backend.tracker_config = {"track_buffer":30}
+        backend.tracker_class = Mock()
+        backend.reset()
+        self.assertEqual(backend.tracker_class.call_args.args[0].track_buffer, 2)
+        backend.model = Mock()
+        results = [Mock(), Mock()]
+        backend.model.predict.side_effect = [torch.cuda.OutOfMemoryError(), results, results]
+        images = tuple(Image.new("RGB",(16,16)) for _ in range(4))
+        try:
+            backend.prefetch(images)
+            self.assertEqual([c.kwargs["batch"] for c in backend.model.predict.call_args_list],[4,2,2])
+            self.assertEqual(len(backend.predictions),4)
+        finally:
+            for image in images:
+                image.close()
 
 
 if __name__ == "__main__":

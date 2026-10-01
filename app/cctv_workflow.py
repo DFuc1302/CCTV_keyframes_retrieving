@@ -6,6 +6,7 @@ import copy
 import io
 import json
 import os
+import shutil
 import subprocess
 import sys
 import threading
@@ -23,7 +24,7 @@ from starlette.concurrency import run_in_threadpool
 from tqdm import tqdm
 
 from pipeline.cctv.events import read_json
-from pipeline.cctv.ingest import reject_link, save_json
+from pipeline.cctv.ingest import digest, reject_link, save_json
 from pipeline.cctv.manifest import identity, load_manifest
 from pipeline.cctv.preview import probe
 from pipeline.cctv.traffic import TrafficConfig
@@ -318,6 +319,43 @@ class Workflow:
             self.thread.start()
             return self.get(dataset_id)
 
+    def preprocessing_key(self, data: dict) -> dict:
+        """Only reuse preprocessing for the same sources, cameras, models and code."""
+        from importlib.metadata import version
+        return dict(videos=[dict(id=v["video_id"], camera=v["camera_id"],
+                                source=v["source"], sha256=digest(Path(v["source"]))) for v in data["videos"]],
+                    environment={p:version(p) for p in ("torch","transformers","faiss-cpu","av")},
+                    inputs={p:digest(ROOT / p) for p in ("pipeline/cctv/ingest.py", "pipeline/cctv/index.py",
+                        "pipeline/cctv/preview.py", "scripts/inventory_cctv_evaluation.py",
+                        "pipeline/cctv/clip.py", "outputs/model-cache/clip.json")})
+
+    def preprocessing_files(self, run: Path) -> dict:
+        return {str(p.relative_to(run)):digest(p) for name in ("inventory","processed","search-index","video-preview")
+                for p in (run/name).rglob("*") if p.is_file() and p.name != ".ingest.lock"}
+
+    def reuse_preprocessing(self, data: dict, run: Path) -> bool:
+        record = self.folder(data["id"]) / "preprocessing.json"
+        if not record.exists():
+            return False
+        proof = read_json(record)
+        if proof["key"] != self.preprocessing_key(data):
+            return False
+        source = Path(proof["run"]).resolve()
+        if not source.is_relative_to(self.folder(data["id"]).resolve()):
+            raise ValueError("Preprocessing cache outside dataset")
+        if self.preprocessing_files(source) != proof["files"]:
+            raise ValueError("Preprocessing cache changed; preserve it and start a new dataset")
+        if source == run:
+            return True
+        for name in ("inventory","processed","search-index","video-preview"):
+            destination = run/name
+            if not destination.exists():
+                shutil.copytree(source/name,destination,ignore=shutil.ignore_patterns(".ingest.lock"))
+        if self.preprocessing_files(run) != proof["files"]:
+            raise ValueError("Incomplete preprocessing copy; preserve it and start a new run")
+        save_json(run/"preprocessing-reuse.json", dict(source_run=str(source), key=proof["key"]))
+        return True
+
     def stages(self, data: dict, run: Path) -> list[tuple[str, str, list[str]]]:
         p = data["preparation"]
         self.write(run / "preparation.json", p)
@@ -539,7 +577,7 @@ class Workflow:
                 ],
             ),
         ]
-        return commands
+        return commands[4:] if self.reuse_preprocessing(data, run) else commands
 
     def worker(self, dataset_id: str, job: dict) -> None:
         folder = self.folder(dataset_id)
@@ -571,6 +609,9 @@ class Workflow:
                     with timing.open("a", encoding="utf-8") as handle:
                         handle.write(json.dumps(dict(stage=name, module=module,
                             elapsed_sec=round(time.perf_counter()-started, 3))) + "\n")
+                if module == "pipeline.cctv.preview":
+                    save_json(folder/"preprocessing.json", dict(run=str(run),
+                        key=self.preprocessing_key(job["snapshot"]), files=self.preprocessing_files(run)))
             if not job["download"]:
                 if self.cancelled.is_set():
                     raise InterruptedError("Đã dừng trước khi kích hoạt kết quả.")
