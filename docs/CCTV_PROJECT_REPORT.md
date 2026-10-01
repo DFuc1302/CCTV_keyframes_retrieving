@@ -244,3 +244,19 @@ synthetic. Quy trình/lệnh đầy đủ: `CCTV_ADJUDICATION.md`.
 
 T8.1–T8.3 đã có công cụ; review/adjudication thật, xác nhận groups/splits,
 duyệt ROI và chạy trên máy thứ hai vẫn là điều kiện nghiệm thu còn mở.
+
+## Bổ sung T9.1 — tiện ích chạy thử demo HTTP
+
+`Test-CctvDemo.ps1` quản lý start/ready/check/stop trong một lệnh, một process
+với một server thread/worker và một CLIP instance. Socket reservation diễn ra
+trước inference; existing mode không khởi động hoặc dừng server khác. Client
+T7.3 giữ nguyên checks và provenance/raw SHA guards. Không thay baseline
+models/pipeline hoặc tự duyệt dữ liệu pending.
+
+Managed run CUDA/FP16 trên 8087 đạt HTTP checks, 100 protected files giữ
+SHA/mtime, server shutdown thành công. Đây là kiểm tra HTTP tích hợp,
+không thêm bằng chứng browser playback, nhãn chất lượng hoặc máy thứ hai.
+Hướng dẫn/code/lệnh: `CCTV_DEMO_SMOKE.md`.
+
+Windows core suite đạt 244 tests, pip check/compile/CUDA FP16/NMS đạt.
+Socket 8087 bind được lại sau managed run, xác minh server đã giải phóng cổng.
