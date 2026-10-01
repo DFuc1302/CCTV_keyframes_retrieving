@@ -110,6 +110,11 @@ if ($LASTEXITCODE -ne 0) { throw 'Tracking failed.' }
   --tracking-dir outputs\demo-data\tracking-clips `
   --output-dir outputs\demo-data\traffic-draft-v1 --allow-draft
 if ($LASTEXITCODE -ne 0) { throw 'Congestion failed.' }
+& $python scripts\preview_cctv_roi.py --manifest configs\cctv.demo.json `
+  --roi-config configs\cctv.roi-draft.json `
+  --tracking-dir outputs\demo-data\tracking-clips `
+  --output-dir outputs\demo-data\roi-draft-previews
+if ($LASTEXITCODE -ne 0) { throw 'ROI preview failed.' }
 & $python -m pipeline.cctv.incidents --manifest configs\cctv.demo.json `
   --roi configs\cctv.roi-draft.json --config configs\cctv.incidents.demo.json `
   --tracking-dir outputs\demo-data\tracking-clips `
@@ -132,6 +137,116 @@ Các configs annotation/split pending bind manifest checksum gốc. Nếu tạo
 manifest mới, tạo annotation/split mới có checksum đúng, giữ pending và
 unassigned cho đến khi review thật; không đổi pending thành reviewed chỉ
 để chạy evaluator. Draft ROI và simulation vẫn phải hiển thị rõ.
+
+## T9.5 — hoàn thiện assets cho các tab demo
+
+Sau các stage trên, tạo package congestion và bài tập sự kiện tổng hợp riêng.
+Case tổng hợp chỉ dùng để thử UI/review gate, không là nhãn phát hiện tai nạn.
+Chạy trước khi mở server; không chạy lại vào thư mục có recipe khác.
+
+```powershell
+& $python -m pipeline.cctv.events --manifest configs\cctv.demo.json `
+  --windows-dir outputs\demo-data\traffic-draft-v1 `
+  --tracking-dir outputs\demo-data\tracking-clips `
+  --output outputs\demo-data\events-v1
+if ($LASTEXITCODE -ne 0) { throw 'Congestion event package failed.' }
+& $python -m pipeline.cctv.events --manifest configs\cctv.demo.json `
+  --windows-dir outputs\demo-data\traffic-draft-v1 `
+  --tracking-dir outputs\demo-data\tracking-clips `
+  --output outputs\demo-data\events-demo-v1 `
+  --demo-video N001-V001 --demo-start-sec 30 --demo-end-sec 36
+if ($LASTEXITCODE -ne 0) { throw 'Synthetic event package failed.' }
+& $python -m pipeline.cctv.tracking_overlay --manifest configs\cctv.demo.json `
+  --tracking-dir outputs\demo-data\tracking-clips `
+  --output outputs\demo-data\tracking-overlay-v2 --width 960
+if ($LASTEXITCODE -ne 0) { throw 'Tracking overlay failed.' }
+```
+
+Dispatch simulation đã tạo ở trên. Thêm snapshot từ package incidents
+(không yêu cầu journal tồn tại; chưa review giữ pending):
+
+```powershell
+& $python -m pipeline.cctv.dispatch --manifest configs\cctv.demo.json `
+  --resources configs\cctv.resources.simulation.json `
+  --demands configs\cctv.demands.events.json `
+  --events-dir outputs\demo-data\incidents-draft-v1 `
+  --review-dir outputs\demo-data\incident-reviews-v1 `
+  --output outputs\demo-data\dispatch-events-empty-v1
+if ($LASTEXITCODE -ne 0) { throw 'Incident dispatch snapshot failed.' }
+```
+
+Tab Phân bổ còn đọc request của case tổng hợp từ output riêng ngoài Git.
+Tạo request bằng ID thực trong package mới; giữ file đã có nếu nội dung
+khớp và từ chối ghi đè nếu khác. Không tạo/sửa review journal.
+
+```powershell
+$demoEvents = @(Get-Content outputs\demo-data\events-demo-v1\events.jsonl |
+  ForEach-Object { $_ | ConvertFrom-Json } |
+  Where-Object { $_.synthetic_event -and $_.video_id -eq 'N001-V001' })
+if ($demoEvents.Count -ne 1) { throw 'Expected exactly one synthetic demo event.' }
+$requestPath = Join-Path (Get-Location).Path 'outputs\demo-data-review\dispatch-event-request.json'
+$writeRequest = @'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+request = {
+    "schema_version": 1, "mode": "simulation", "kind": "event_package",
+    "demands": [{"demand_id": "SIM-EVENT-REVIEW", "event_id": sys.argv[2],
+                 "min_officers": 2, "required_skills": ["scene_assessment"],
+                 "priority": 4, "max_travel_sec": 180.0}]
+}
+if path.exists():
+    if json.loads(path.read_text(encoding="utf-8-sig")) != request:
+        raise ValueError("Existing request differs; preserve it and use a separate recipe")
+else:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(request, indent=2), encoding="utf-8")
+'@
+$writerPath = Join-Path (Get-Location).Path ('outputs\demo-data-review\write-request-' + [Guid]::NewGuid().ToString('N') + '.py')
+[System.IO.Directory]::CreateDirectory((Split-Path -Parent $writerPath)) | Out-Null
+[System.IO.File]::WriteAllText($writerPath, $writeRequest, [System.Text.UTF8Encoding]::new($false))
+& $python $writerPath $requestPath $demoEvents[0].event_id
+if ($LASTEXITCODE -ne 0) { throw 'Synthetic dispatch request failed.' }
+& $python -m pipeline.cctv.dispatch --manifest configs\cctv.demo.json `
+  --resources configs\cctv.resources.simulation.json `
+  --demands outputs\demo-data-review\dispatch-event-request.json `
+  --events-dir outputs\demo-data\events-demo-v1 `
+  --review-dir outputs\demo-data\events-demo-reviews-v1 `
+  --output outputs\demo-data\dispatch-review-gate-v1
+if ($LASTEXITCODE -ne 0) { throw 'Synthetic review-gate snapshot failed.' }
+```
+
+Máy mới chưa review: case có `pending_review`, không được gán đội. Máy hiện
+tại có journal bài tập riêng với `needs_more_evidence`; giữ trạng thái hiện
+có, không replay lịch sử để làm giống số revision. Thay đổi journal/resource/
+request làm snapshot cũ stale; dùng output recipe mới và cấu hình store phù
+hợp thay vì sửa checkpoint. CLI review tùy chọn xem `CCTV_EVENTS.md`.
+
+Kiểm tra T9.5 trên máy hiện tại: sáu CLI lệnh ROI/events/overlay/dispatch
+resume đạt; 76 protected files giữ SHA/mtime (xem số đếm thực trong
+`outputs/demo-data-review/handover-steps-verification.json`). Rehearsal
+CPU riêng với journal không tồn tại có 0 assignments, 1 unmet demand ở
+`pending_review`, không tạo journal. Đây là kiểm tra cục bộ, máy thứ hai
+vẫn NOT_RUN. T9.5 chỉ sửa tài liệu, core 259 tests đã đạt tại T9.3.
+Mười một khối PowerShell trong tài liệu parse đạt; khối tạo request và snapshot
+review gate đã thực thi trên Windows PowerShell 5.1, giữ request/journal cũ.
+
+`Test-CctvDemo.ps1 -RequireOverlays` hiện dùng recipe của bundle đã chuẩn bị,
+bao gồm journal demo và runtime report lịch sử. Với clone mới chưa có các
+artifacts đó, kiểm tra `/ready`, catalog và video theo mục dưới trước;
+không coi thiếu bundle fixture là lỗi model hoặc tự tạo review để vượt smoke.
+
+Commit tài liệu sau kiểm chứng:
+
+```powershell
+git diff --check
+git add README_CCTV.md docs/CCTV_HANDOVER.md docs/CCTV_PROGRESS.md `
+  docs/CCTV_PROJECT_REPORT.md
+git commit -m 'docs: complete CCTV demo asset rebuild instructions'
+git push origin main
+```
 
 ## Demo và latency trên máy mới
 

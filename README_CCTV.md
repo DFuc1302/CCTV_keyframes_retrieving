@@ -23,7 +23,8 @@ Chọn camera/video, xem ROI và timeline rồi mở evidence đúng timestamp.
 
 Event evidence và review bằng CLI: [`docs/CCTV_EVENTS.md`](docs/CCTV_EVENTS.md).
 Package dữ liệu hiện có có 0 ứng viên; bài tập review tổng hợp lưu riêng,
-không xác nhận tai nạn/tắc đường trong video. Chưa thêm event queue vào UI.
+không xác nhận tai nạn/tắc đường trong video. Tab Sự kiện đã đọc được các
+package và trạng thái review, mở evidence; UI chưa ghi review.
 
 Baseline nghi sự cố theo thời gian: [`docs/CCTV_INCIDENTS.md`](docs/CCTV_INCIDENTS.md).
 Move-then-stop rule chạy CPU từ tracks; có thể bắt nhầm xe chờ đèn đỏ và chưa
@@ -31,7 +32,7 @@ Move-then-stop rule chạy CPU từ tracks; có thể bắt nhầm xe chờ đè
 
 Cấu hình khu vực/đội tuần tra mô phỏng: [`docs/CCTV_RESOURCES.md`](docs/CCTV_RESOURCES.md).
 Validate budget nhân sự, reserve, kỹ năng, availability và chi phí có hướng;
-chưa gợi ý điều động hoặc xác nhận camera location thực tế.
+solver và tab Phân bổ đã có gợi ý mô phỏng, chưa xác nhận vị trí camera thực tế.
 
 Bộ gợi ý phân bổ mô phỏng bằng CLI: [`docs/CCTV_DISPATCH.md`](docs/CCTV_DISPATCH.md).
 Kiểm tra review, kỹ năng, travel, cap/reserve và mỗi đội một lần; có unmet
@@ -48,6 +49,8 @@ Client không tải model thứ hai; latency kỹ thuật không thay thế nhã
 Báo cáo kỹ thuật: [`docs/CCTV_PROJECT_REPORT.md`](docs/CCTV_PROJECT_REPORT.md).
 Gói evidence và quy trình tái lập máy thứ hai:
 [`docs/CCTV_HANDOVER.md`](docs/CCTV_HANDOVER.md). Máy thứ hai chưa nghiệm thu.
+Quy trình gồm ảnh ROI, event packages, ba dispatch snapshots và tracking
+overlay; dữ liệu và review journals không đi kèm Git clone.
 
 Tab Sự kiện & evidence: [`docs/CCTV_EVENTS_UI.md`](docs/CCTV_EVENTS_UI.md).
 Đọc sealed events/review state và mở video evidence; chưa ghi review qua UI.
@@ -61,6 +64,18 @@ CLIP/FAISS/SQLite và CLI tìm kiếm text/image: `docs/CCTV_RETRIEVAL.md`. Pipe
 Demo FastAPI tìm kiếm text/image và mở video tại timestamp: `docs/CCTV_DEMO_UI.md`.
 Sau khi chuẩn bị MP4 previews, chạy `.\scripts\Start-CctvDemo.ps1` và mở
 `http://127.0.0.1:8080`. API dùng một CLIP instance, đọc index hiện có và không sửa video gốc.
+
+Kiểm thử bundle demo hiện có bằng một lệnh (tự start/check/stop server):
+
+```powershell
+.\scripts\Test-CctvDemo.ps1 -RequireOverlays
+```
+
+Nếu server đang chạy, dùng `-ExistingServer -Port 8080 -RequireOverlays`.
+Xem [`CCTV_DEMO_SMOKE.md`](docs/CCTV_DEMO_SMOKE.md) về phạm vi bundle và
+[`CCTV_OVERLAY_UI.md`](docs/CCTV_OVERLAY_UI.md) về video bbox/ID. Smoke hiện
+tại kiểm tra bundle đã chuẩn bị, gồm journal demo và report runtime lịch sử;
+không thay thế nghiệm thu trên một máy mới chưa có các artifacts đó.
 
 ```powershell
 Set-Location 'D:\Project ExploreCS\CCTV_keyframes_retrieving'

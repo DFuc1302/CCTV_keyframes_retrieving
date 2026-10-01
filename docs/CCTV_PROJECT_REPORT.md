@@ -312,3 +312,17 @@ report lịch sử. Resume không HTTP, hai runtime JSON giữ SHA/mtime;
 event metrics null. T9.4 chỉ cập nhật bằng chứng/tài liệu, không đổi code;
 core suite 259 tests đạt tại T9.3. Quy trình: `CCTV_RUNTIME_BENCHMARK.md`
 và `CCTV_HANDOVER.md`.
+
+## Bổ sung T9.5 — hoàn thiện hướng dẫn tái lập demo
+
+Handover bổ sung các bước còn thiếu để dựng tab traffic/events/dispatch:
+ROI previews, hai event packages, tracking overlay và hai event-bound
+dispatch snapshots. Request case tổng hợp lấy ID từ package vừa tạo,
+không ghi đè request khác và không tạo review. README cập nhật trạng thái UI.
+
+Sáu CLI steps kiểm chứng resume đạt trên máy hiện tại; 76 protected files
+giữ SHA/mtime. Rehearsal CPU với journal không tồn tại tạo 0 assignments/
+1 unmet demand pending_review, không tạo journal. Các khối PowerShell parse
+đạt và khối request chạy trên Windows PowerShell 5.1. Đây là kiểm tra lệnh
+cục bộ; chưa dựng toàn bộ pipeline ở máy thứ hai hoặc đo chất lượng.
+Chi tiết, giới hạn recipe smoke và lệnh Git: `CCTV_HANDOVER.md`, mục T9.5.
