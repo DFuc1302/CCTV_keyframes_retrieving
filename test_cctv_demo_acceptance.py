@@ -1,13 +1,18 @@
 """Integration verifier detects metadata, media and review/cap failures."""
 
 import copy
+import sqlite3
 import unittest
 from io import BytesIO
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import httpx
 from PIL import Image
 
-from scripts.verify_cctv_demo import verify_demo
+from scripts.verify_cctv_demo import SERVER_CODE, run, verify_demo
 
 
 class DemoAcceptanceTests(unittest.TestCase):
@@ -171,6 +176,87 @@ class DemoAcceptanceTests(unittest.TestCase):
         ] = "confirmed"
         with self.assertRaisesRegex(ValueError, "live review"):
             self.verify()
+
+    def test_rebuilt_bundle_without_journals_or_historical_benchmark(self):
+        """Absent reviews are valid inputs, but their creation invalidates the run."""
+        with TemporaryDirectory() as folder:
+            root = Path(folder).resolve()
+            manifest = root / "configs/demo.json"
+            index = root / "outputs/index"
+            for name in (
+                "video-preview",
+                "tracking-clips",
+                "traffic-draft-v1",
+                "roi-draft-previews",
+                "events-v1",
+                "events-demo-v1",
+                "incidents-draft-v1",
+                "dispatch-simulation-v1",
+                "dispatch-events-empty-v1",
+                "dispatch-review-gate-v1",
+            ):
+                (root / "outputs/demo-data" / name).mkdir(parents=True)
+            for path in (
+                manifest,
+                index / "index_state.json",
+                root / "outputs/model-cache/clip.json",
+                root / "outputs/demo-data-review/dispatch-event-request.json",
+                *(root / name for name in SERVER_CODE),
+            ):
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("{}", encoding="utf-8")
+
+            def connect():
+                conn = sqlite3.connect(":memory:")
+                conn.execute("CREATE TABLE frames (id, file, faiss_id)")
+                conn.execute(
+                    "CREATE TABLE cctv_frames (id, camera_id, video_id, timestamp_sec, frame_idx)"
+                )
+                return conn
+
+            journal = root / "outputs/demo-data/events-demo-reviews-v1"
+            with (
+                patch("scripts.verify_cctv_demo.ROOT", root),
+                patch(
+                    "scripts.verify_cctv_demo.load_manifest",
+                    return_value=SimpleNamespace(
+                        path=manifest, raw_root=root / "raw", videos=[]
+                    ),
+                ),
+                patch("scripts.verify_cctv_demo.CctvSearch") as search,
+                patch("scripts.verify_cctv_demo.check_server"),
+                patch(
+                    "scripts.verify_cctv_demo.verify_demo",
+                    return_value={"passed": True},
+                ) as verify,
+            ):
+                search.return_value.connect.side_effect = connect
+                report = run(
+                    manifest,
+                    index,
+                    root / "outputs/acceptance",
+                    "http://127.0.0.1:8080",
+                )
+                self.assertTrue(report["passed"])
+                self.assertEqual(len(report["absent_review_folders"]), 3)
+                self.assertFalse(journal.exists())
+                self.assertFalse(
+                    (root / "outputs/demo-data/runtime-benchmark-v1").exists()
+                )
+
+                def create_journal(*args):
+                    journal.mkdir()
+                    return {"passed": True}
+
+                verify.side_effect = create_journal
+                with self.assertRaisesRegex(ValueError, "journal appeared"):
+                    run(
+                        manifest,
+                        index,
+                        root / "outputs/changed",
+                        "http://127.0.0.1:8080",
+                    )
+                self.assertFalse((root / "outputs/changed").exists())
 
 
 if __name__ == "__main__":

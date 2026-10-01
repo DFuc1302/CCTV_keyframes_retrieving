@@ -22,8 +22,9 @@ duyệt ROI hoặc phân bổ nhân lực thực tế. Không chạy benchmark l
 ## Code đầy đủ / PowerShell run and test
 
 Source: `scripts/Test-CctvDemo.ps1` và `scripts/run_cctv_demo_smoke.py`.
-Yêu cầu venv, model cache và toàn bộ outputs demo T7.3 đã dựng; không tự tải
-model hoặc dựng lại pipeline. Chạy từ Windows PowerShell:
+Yêu cầu venv, model cache và assets demo đã dựng theo `CCTV_HANDOVER.md`;
+không tự tải model hoặc dựng lại pipeline. Không yêu cầu journal review
+hoặc runtime report lịch sử; chưa review giữ pending. Chạy từ PowerShell:
 
 ```powershell
 Set-Location 'D:\Project ExploreCS\CCTV_keyframes_retrieving'
@@ -74,6 +75,12 @@ Timeout shutdown 15 giây; nếu thread chưa dừng, CLI báo lỗi và thoát 
 Raw/config/index/review journals chỉ đọc; output bị chỉnh hoặc nonempty không
 được ghi đè. Client T7.3 kiểm tra provenance/locator và input SHA/mtime.
 
+T9.6 bỏ dependency không cần thiết vào `runtime-benchmark-v1`; bảo vệ
+request dispatch và cả ba journal nếu có. Journal chưa tồn tại được ghi
+trong `absent_review_folders`, phải giữ absent đến cuối run. Không đổi
+readiness/dispatch gate hoặc tạo review. Regression test kiểm tra bundle
+không có journals/report lịch sử và từ chối journal xuất hiện giữa run.
+
 ## Kết quả / Git
 
 Managed smoke thật đã chạy CUDA/FP16 trên 8087: CLIP 768D, HTTP passed,
@@ -88,5 +95,19 @@ Cổng 8087 bind được lại sau smoke, xác minh socket đã giải phóng.
 ```powershell
 git add scripts/Test-CctvDemo.ps1 scripts/run_cctv_demo_smoke.py scripts/Test-Windows.ps1 test_cctv_demo_smoke.py test_powershell_scripts.py docs/CCTV_DEMO_SMOKE.md docs/CCTV_PROGRESS.md docs/CCTV_PROJECT_REPORT.md
 git commit -m "test: add one-command managed CCTV demo smoke"
+git push origin main
+```
+
+T9.6: **260 core tests đạt**, pip check/compile/CUDA FP16/NMS đạt; managed
+smoke CUDA/FP16 với `-RequireOverlays` đạt sáu clips/30 windows, 107 files
+giữ SHA/mtime, hai journals absent giữ nguyên và owned server shutdown đạt.
+Log: `outputs/tests/demo-smoke-20261001-171142-10994a76.txt`.
+Report: `outputs/demo-data/demo-smoke-20261001-171142-10994a76/acceptance_report.json`.
+Regression pending/no-history dùng temporary fixture; chưa nghiệm thu máy mới.
+
+```powershell
+git add scripts/verify_cctv_demo.py test_cctv_demo_acceptance.py README_CCTV.md `
+  docs/CCTV_DEMO_SMOKE.md docs/CCTV_HANDOVER.md docs/CCTV_PROGRESS.md
+git commit -m 'fix: allow CCTV demo smoke without review journals or old benchmarks'
 git push origin main
 ```

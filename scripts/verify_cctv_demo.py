@@ -281,6 +281,7 @@ def run(
         ROOT / "configs",
         index.absolute(),
         ROOT / "outputs/model-cache/clip.json",
+        ROOT / "outputs/demo-data-review/dispatch-event-request.json",
     ]
     folders = [
         ROOT / "outputs/demo-data" / n
@@ -291,14 +292,22 @@ def run(
             "roi-draft-previews",
             "events-v1",
             "events-demo-v1",
-            "events-demo-reviews-v1",
             "incidents-draft-v1",
             "dispatch-simulation-v1",
             "dispatch-events-empty-v1",
             "dispatch-review-gate-v1",
-            "runtime-benchmark-v1",
         )
     ]
+    review_folders = [
+        ROOT / "outputs/demo-data" / name
+        for name in (
+            "event-reviews-v1",
+            "incident-reviews-v1",
+            "events-demo-reviews-v1",
+        )
+    ]
+    absent_reviews = [p for p in review_folders if not p.exists()]
+    folders.extend(p for p in review_folders if p.exists())
     paths = [
         manifest.path,
         Path(__file__).resolve(),
@@ -328,6 +337,7 @@ def run(
             manifest.path,
             *protected,
             *folders,
+            *review_folders,
             ROOT / "app",
             ROOT / "static",
             ROOT / "scripts",
@@ -367,10 +377,15 @@ def run(
         before == {str(p): (digest(p), p.stat().st_mtime_ns) for p in paths},
         "Protected demo inputs changed",
     )
+    require(
+        all(not p.exists() for p in absent_reviews),
+        "Review journal appeared during checks",
+    )
     report.update(
         verified_utc=datetime.now(timezone.utc).isoformat(),
         protected_files=len(paths),
         inputs={p: sha for p, (sha, _) in before.items()},
+        absent_review_folders=[str(p) for p in absent_reviews],
     )
     output.mkdir(parents=True, exist_ok=True)
     save_json(output / "acceptance_report.json", report)

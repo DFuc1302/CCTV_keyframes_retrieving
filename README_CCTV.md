@@ -73,9 +73,9 @@ Kiểm thử bundle demo hiện có bằng một lệnh (tự start/check/stop s
 
 Nếu server đang chạy, dùng `-ExistingServer -Port 8080 -RequireOverlays`.
 Xem [`CCTV_DEMO_SMOKE.md`](docs/CCTV_DEMO_SMOKE.md) về phạm vi bundle và
-[`CCTV_OVERLAY_UI.md`](docs/CCTV_OVERLAY_UI.md) về video bbox/ID. Smoke hiện
-tại kiểm tra bundle đã chuẩn bị, gồm journal demo và report runtime lịch sử;
-không thay thế nghiệm thu trên một máy mới chưa có các artifacts đó.
+[`CCTV_OVERLAY_UI.md`](docs/CCTV_OVERLAY_UI.md) về video bbox/ID. Smoke kiểm
+tra assets hiện tại; không cần journal review hoặc report runtime lịch sử.
+Chưa review giữ pending; phải dựng assets theo hướng dẫn handover trước.
 
 ```powershell
 Set-Location 'D:\Project ExploreCS\CCTV_keyframes_retrieving'

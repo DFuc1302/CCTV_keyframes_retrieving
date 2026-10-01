@@ -39,7 +39,7 @@ Không suy số tuần thực tế đã làm hoặc phần trăm hoàn thành t�
 | M6: đánh giá và bàn giao | T6.1–T6.3 có công cụ/tài liệu | Event evaluator, frozen HTTP latency, báo cáo và package bàn giao đã có; nhãn thật và chạy máy thứ hai còn mở |
 | M7: tích hợp demo sự kiện/điều phối | T7.1–T7.3 đạt kỹ thuật cục bộ | Event/evidence, phân bổ mô phỏng, HTTP/browser smoke và runtime mới có; chưa nghiệm thu chất lượng hoặc máy thứ hai |
 | M8: chuẩn bị review/nhãn độc lập | T8.1–T8.3 có công cụ pending | Tư liệu sạch, notes riêng, comparison và explicit adjudication/export; chưa review thật hoặc tạo ground truth |
-| M9: tiện ích chạy thử | T9.1–T9.5 đạt kỹ thuật cục bộ | HTTP smoke, tracking overlay API/UI, runtime và hướng dẫn dựng lại các tab; chưa nghiệm thu chất lượng |
+| M9: tiện ích chạy thử | T9.1–T9.6 đạt kỹ thuật cục bộ | HTTP smoke, tracking overlay API/UI, runtime và rebuild; smoke hỗ trợ journal pending, chưa nghiệm thu chất lượng |
 
 Sau hai bản sửa launcher (encoding PowerShell và cổng bận), core suite đã chạy
 lại bằng Windows PowerShell 5.1: **47 tests đạt**, runtime CUDA FP16/NMS đạt.
@@ -207,6 +207,7 @@ không tự suy vị trí, thời gian tuyệt đối hoặc hiệu chuẩn tố
 | T9.3: overlay trên traffic UI — đã có | MP4/Range và optional catalog, provenance/snapshot guards, source offset, nút xem clip; không duyệt dữ liệu |
 | T9.4: runtime/bàn giao hiện tại — đã có | 120 measured + 24 warmup không lỗi, resume không HTTP, sealed handover; máy thứ hai NOT_RUN |
 | T9.5: hoàn thiện hướng dẫn rebuild — đã có | Bổ sung ROI previews, events, overlay và dispatch snapshots; kiểm chứng CLI/resume và pending review không gán đội |
+| T9.6: smoke cho bundle dựng mới — đã có | Bỏ phụ thuộc runtime lịch sử/journal bắt buộc, bảo vệ request và journal có/không có; regression và HTTP smoke đạt |
 
 Sau T8.2: **225 core tests đạt**, pip check/compile/CUDA FP16/NMS đạt.
 11 tests mới dùng fixtures; hai templates và comparison demo giữ sáu khoảng
@@ -244,6 +245,18 @@ Sáu CLI commands resume đạt, 76 protected files giữ SHA/mtime. Rehearsal
 CPU riêng với journal chưa có giữ pending_review: 0 assignments/1 unmet,
 không tạo journal. Không đổi executable code, không nạp model; máy thứ hai
 vẫn NOT_RUN. Xem `CCTV_HANDOVER.md`, mục T9.5.
+
+T9.6 sửa dependency không cần thiết trong verifier dùng chung cho CLI và
+managed/existing smoke. Không cần report runtime lịch sử hoặc journal đã
+review; journal absent phải giữ absent trong run, request dispatch được
+freeze. Regression kiểm tra thiếu cả ba journals/report và reject journal
+xuất hiện giữa run. Managed CUDA smoke đạt sáu overlays/30 windows,
+107 protected files giữ SHA/mtime, owned server dừng và cổng 8087 giải phóng.
+Report: `outputs/demo-data/demo-smoke-20261001-171142-10994a76/acceptance_report.json`.
+Không sửa raw/review/ROI hoặc logic inference/dispatch. Các mốc còn cần
+đầu vào thực vẫn là review/labels/groups/ROI và máy thứ hai; không bổ sung
+module mới chỉ để tăng số task.
+Sau T9.6: **260 core tests đạt**, pip check/compile/CUDA FP16/NMS đạt.
 
 Mỗi task: code/module hoàn chỉnh → kiểm thử phù hợp và dữ liệu mẫu → tài liệu
 PowerShell → Conventional Commit → push. Chạy CLIP phục vụ và detector theo

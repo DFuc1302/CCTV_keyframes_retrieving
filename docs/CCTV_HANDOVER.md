@@ -233,10 +233,12 @@ vẫn NOT_RUN. T9.5 chỉ sửa tài liệu, core 259 tests đã đạt tại T9
 Mười một khối PowerShell trong tài liệu parse đạt; khối tạo request và snapshot
 review gate đã thực thi trên Windows PowerShell 5.1, giữ request/journal cũ.
 
-`Test-CctvDemo.ps1 -RequireOverlays` hiện dùng recipe của bundle đã chuẩn bị,
-bao gồm journal demo và runtime report lịch sử. Với clone mới chưa có các
-artifacts đó, kiểm tra `/ready`, catalog và video theo mục dưới trước;
-không coi thiếu bundle fixture là lỗi model hoặc tự tạo review để vượt smoke.
+Sau T9.6, `Test-CctvDemo.ps1 -RequireOverlays` kiểm tra assets vừa dựng mà
+không cần journal demo hoặc runtime report lịch sử. Reviews chưa có giữ
+pending; journal xuất hiện trong lúc check làm run thất bại. Vẫn cần đầy đủ
+index/previews/traffic/ROI/events/dispatch/request/overlay theo các stage
+trên. Không tự tạo review để vượt smoke hoặc dùng kết quả cục bộ thay bằng
+nghiệm thu máy thứ hai.
 
 Commit tài liệu sau kiểm chứng:
 
