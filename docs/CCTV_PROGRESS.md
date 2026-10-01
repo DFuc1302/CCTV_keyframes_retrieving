@@ -332,7 +332,8 @@ Nguồn pipeline/raw được verifier kiểm tra SHA/mtime trước và sau.
 Trạng thái kỹ thuật: `PASSED_DEMO_CHECKS`, `quality_metrics=null`.
 Trạng thái độc lập: T10.1 content/groups, T10.2 ROI approval, T10.3 split,
 T10.5 calibration, T10.6 chất lượng vẫn pending; T10.4/M8 PENDING;
-T10.7 máy thứ hai NOT_RUN. T10.8 có báo cáo kỹ thuật tự sinh, chưa rehearsal.
+T10.7 máy thứ hai NOT_RUN. T10.8 có báo cáo kỹ thuật tự sinh; rehearsal kỹ
+thuật UI đã hoàn tất như cập nhật bên dưới, chưa thuyết trình người dùng.
 Chi tiết thao tác: [UI workflow](CCTV_UI_WORKFLOW.md); gates đánh giá:
 [M10](CCTV_M10_EVALUATION.md). Log regression: `outputs/tests/core-tests.txt`.
 
@@ -346,8 +347,25 @@ T10.2–T10.6 chờ ROI/groups/nhãn đủ gate; không chạy calibration trên
 pending. T10.7 chưa có máy thứ hai được truy cập/chạy; vẫn NOT_RUN.
 T10.8 đã cập nhật báo cáo đến M11 và chuẩn bị kịch bản bảo vệ demo 10 phút/Q&A;
 checklist T10.7 bổ sung tuyến UI sau setup. Đối chiếu artifacts/log hiện có,
-không chạy lại inference cho thay đổi tài liệu. Chưa có rehearsal/bảo vệ,
+không chạy lại inference cho thay đổi tài liệu. Chưa có thuyết trình/bảo vệ,
 quality metrics hoặc kết quả máy thứ hai mới; các phần này vẫn pending.
+
+### T10.8 — rehearsal kỹ thuật UI hoàn tất
+
+Ngày 2026-10-01 trên commit `b44120a`, dùng lại M11 browser smoke. Worker
+T10 mới đạt 5/5; browser kiểm tra 12 kết quả text, source seek 10,52 giây/
+duration 12, overlay duration 10, readyState 4, 5 traffic windows, ROI pending.
+Review giữ needs_more_evidence revision 1; simulation 1 assignment/2 unmet,
+review gate 0/1. ZIP từ UI có T10 JSON/Markdown; console không lỗi,
+132 protected source/code/output files giữ SHA256 sau rehearsal.
+Evidence: `outputs/tests/t10-rehearsal.json`; report tại
+`outputs/ui-workflow/3c2df27735c74e33b9c289d858e560a2/t10-e48f46da019a4e11b710cc3879c9b354/report.json`.
+Owned server đã dừng sau rehearsal. Không chạy lại inference, không thay
+review hoặc dùng fixture như nhãn thật. Core suite 268 tests vẫn là bằng
+chứng regression đã đạt; thay đổi lần này chỉ là tài liệu.
+
+Phần demo tự động của T10 hoàn tất. Còn người dùng diễn tập thuyết trình;
+T10.1–T10.6 độc lập chờ đầu vào, M8 PENDING; T10.7 máy thứ hai NOT_RUN.
 Kiểm chứng bước chuẩn bị: **261 core tests đạt**, pip check/compile/CUDA
 FP16/NMS đạt; bản sao ba forms working đã tạo mà không phê duyệt hoặc gán nhãn.
 

@@ -112,7 +112,7 @@ folder này để tránh ghi đè quan sát người dùng. Review vẫn pending
 | T10.5 | Baseline và bounded CPU calibration trên development | Chưa có labels/ROI/split đủ điều kiện |
 | T10.6 | Frozen test benchmark, FP/FN/ignored evidence | Chờ T10.3–T10.5 |
 | T10.7 | Rebuild máy Windows NVIDIA khác, commit/env/log/checklist thực | Chờ thông tin máy thứ hai |
-| T10.8 | Report và kịch bản bảo vệ source-backed | Báo cáo cập nhật M11 + kịch bản demo 10 phút/Q&A đã chuẩn bị; quality/second-machine pending |
+| T10.8 | Report và kịch bản bảo vệ source-backed | Báo cáo, kịch bản/Q&A và rehearsal kỹ thuật UI hoàn tất; thuyết trình người dùng/quality/second-machine pending |
 
 Một reviewer có thể ghi quan sát/content pilot trước; không export reviewed
 independent annotation. Nếu không đủ positive/negative hoặc groups độc lập,
@@ -137,6 +137,26 @@ phải buổi bảo vệ thực hoặc phép đánh giá độc lập. T10.1 con
 T10.2 approval, T10.3 split và T10.5–T10.7 giữ trạng thái pending.
 Kiểm chứng tài liệu: 8 local links tồn tại, 17 PowerShell blocks parse đạt,
 artifact counts/pending flags khớp; log `outputs/tests/t10-report-verification.json`.
+
+## Rehearsal kỹ thuật T10.8 — đã chạy
+
+Ngày 2026-10-01, commit `b44120a`, Windows/RTX 4070 Laptop, dùng lại dataset
+M11 browser smoke; không rebuild raw/pipeline hoặc thay review. Browser chạy
+T10 mới `t10-e48f46da019a4e11b710cc3879c9b354`, năm bước đạt; sau đó kiểm tra
+text query (12 kết quả), source video seek 10,52/12 giây, overlay 10 giây,
+5 traffic windows và ROI pending. Hai video readyState=4.
+
+Case tổng hợp vẫn needs_more_evidence revision 1. Simulation có 1 assignment/
+2 unmet; review gate có 0/1. ZIP tải qua UI chứa report JSON/Markdown với
+quality_metrics=null, M8 PENDING, máy thứ hai NOT_RUN. Console không ghi lỗi;
+132 protected files giữ SHA256 sau thao tác browser. Log:
+`outputs/tests/t10-rehearsal.json`; worker report trong folder t10 ở trên.
+Đây là rehearsal kỹ thuật tự động; buổi thuyết trình/bảo vệ vẫn chưa diễn ra.
+
+Không còn task tự động trong phạm vi demo T10 cần triển khai. T10.1–T10.6
+đánh giá độc lập chờ review/groups/ROI/nhãn, T10.7 chờ máy khác. Không đóng
+các gates này bằng kết quả tổng hợp. Core suite 268 tests là log đã đạt trước
+rehearsal; không chạy lại suite/inference cho cập nhật tài liệu.
 
 ## Protocol calibration/test đã chốt, chưa thực thi
 

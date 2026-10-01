@@ -183,7 +183,9 @@ bảo vệ demo dưới đây; bổ sung kết quả đánh giá/tái lập khi 
 
 ## 7. Kịch bản bảo vệ demo — khoảng 10 phút
 
-Đây là kịch bản chuẩn bị, chưa ghi nhận một buổi bảo vệ/rehearsal mới.
+Rehearsal kỹ thuật bằng browser đã chạy ngày 2026-10-01 trên commit `b44120a`,
+dataset đã xử lý **M11 browser smoke**. Chưa có rehearsal thuyết trình bởi
+người dùng hoặc buổi bảo vệ; không đo thời lượng thuyết trình 10 phút.
 Trước buổi trình diễn, kiểm tra môi trường đã setup, weights có sẵn, cổng
 launcher không bị ứng dụng khác chiếm và demo H.264 đủ dài cho tracking.
 Chạy pipeline trước trên UI nếu buổi bảo vệ ngắn; không hứa hoàn tất inference
@@ -197,7 +199,7 @@ trong một thời lượng cố định. Có thể dùng dataset đã xử lý 
 | 4–6 phút | Text query tiếng Anh, mở keyframe/video | CLIP cosine + FAISS/SQLite; seek bằng PTS, score không là xác suất sự kiện |
 | 6–7 phút | Traffic timeline, ROI, bbox/ID overlay | Occupancy/motion/coverage; pixel/s, ID theo segment, ngưỡng chưa calibration |
 | 7–9 phút | Case tổng hợp, review needs_more_evidence, tính proposal | Evidence/revision; pending gate chặn phân bổ; đội/budget/reserve mô phỏng |
-| 9–10 phút | Tải ZIP và trình bày giới hạn | 264 tests, smoke 12/12; chất lượng chưa chấm, M8 pending, máy thứ hai NOT_RUN |
+| 9–10 phút | Tự kiểm chứng T10, tải ZIP và trình bày giới hạn | 268 tests, pipeline 12/12, T10 5/5; chất lượng chưa chấm, M8 pending, máy thứ hai NOT_RUN |
 
 Nếu muốn minh họa assignment, chọn kịch bản **Nhu cầu tổng hợp** trong tab
 phân bổ: fixture có 1 assignment/2 unmet. Không xác nhận một sự cố demo chỉ
@@ -215,7 +217,7 @@ giữ checkpoint và không xóa output để tạo lỗi giả.
 - **8 GB VRAM có đủ không?** Luồng hiện đã chạy trên RTX 4070 Laptop, FP16,
   batch CLIP 4, tracking bounded và một model GPU theo stage. Không suy rằng
   mọi model/dataset hoặc nhiều users đồng thời đều chạy được.
-- **264 tests có nghĩa accuracy cao không?** Chỉ là kiểm thử phần mềm và
+- **268 tests có nghĩa accuracy cao không?** Chỉ là kiểm thử phần mềm và
   contracts. Chưa có F1/Recall@K thực; latency cũ không là latency M11.
 - **Đề xuất phân bổ có dùng được cho cảnh sát thật không?** Nguồn lực/vùng/
   travel giả định; solver minh họa constraints và reserve, không phát lệnh.
