@@ -1,0 +1,17 @@
+# Colab GPU runtime: reuse its installed torch/torchvision pair.
+# Python 3.10-3.12; Windows runtime remains independently pinned.
+numpy==1.26.4
+opencv-python==4.11.0.86
+faiss-cpu>=1.10,<2
+pillow>=10,<13
+tqdm>=4.66,<5
+transformers>=4.57,<5
+fastapi>=0.115,<1
+uvicorn>=0.30,<1
+redis>=5,<8
+httpx>=0.27,<1
+sentence-transformers>=3,<6
+ultralytics>=8.3,<9
+imagehash>=4.3,<5
+av>=14,<17
+lap==0.5.12

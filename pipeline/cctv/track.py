@@ -99,7 +99,11 @@ def sampled_frames(reader, start: float, interval: float):
             frame.image.close()
             continue
         if interval:
-            deadline = start + (math.floor((frame.timestamp_sec-start+1e-9)/interval)+1)*interval
+            deadline = (
+                start
+                + (math.floor((frame.timestamp_sec - start + 1e-9) / interval) + 1)
+                * interval
+            )
         yield frame
 
 
@@ -171,35 +175,55 @@ class ByteTrackBackend(YoloDetector):
     def prefetch(self, images) -> None:
         """Batch detection only; retry CUDA OOM with smaller uncommitted batches."""
         import torch
+
         if not images:
             return
         self.predictions.clear()
         size = min(4, len(images))
         offset = 0
         while offset < len(images):
-            batch = images[offset:offset+size]
+            batch = images[offset : offset + size]
             try:
-                with torch.inference_mode(), torch.amp.autocast("cuda", enabled=self.device=="cuda"):
-                    results = self.model.predict(source=list(batch), device=0 if self.device=="cuda" else "cpu",
-                        **self.precision_args, imgsz=640, conf=0.1, iou=0.7, max_det=300,
-                        classes=list(CLASSES), batch=len(batch), stream=False, verbose=False,
-                        save=False, rect=False)
+                with (
+                    torch.inference_mode(),
+                    torch.amp.autocast("cuda", enabled=self.device == "cuda"),
+                ):
+                    results = self.model.predict(
+                        source=list(batch),
+                        device=0 if self.device == "cuda" else "cpu",
+                        **self.precision_args,
+                        imgsz=640,
+                        conf=0.1,
+                        iou=0.7,
+                        max_det=300,
+                        classes=list(CLASSES),
+                        batch=len(batch),
+                        stream=False,
+                        verbose=False,
+                        save=False,
+                        rect=False,
+                    )
                 if len(results) != len(batch):
                     raise ValueError("Tracking detection batch coverage mismatch")
-                self.predictions.update({id(image): result.boxes.cpu().numpy() for image,result in zip(batch,results)})
+                self.predictions.update(
+                    {
+                        id(image): result.boxes.cpu().numpy()
+                        for image, result in zip(batch, results)
+                    }
+                )
                 del results
                 offset += len(batch)
             except torch.cuda.OutOfMemoryError:
                 torch.cuda.empty_cache()
                 if size == 1:
                     raise
-                size = max(1, size//2)
+                size = max(1, size // 2)
 
     def reset(self) -> None:
         """New segment resets Kalman state and IDs; IDs remain scoped by segment."""
         config = dict(self.tracker_config)
         if self.recipe_interval:
-            config["track_buffer"] = max(1, round(1/self.recipe_interval))
+            config["track_buffer"] = max(1, round(1 / self.recipe_interval))
         self.tracker = self.tracker_class(SimpleNamespace(**config))
 
     def process(self, image: Image.Image) -> list[dict]:
@@ -412,6 +436,7 @@ def track_videos(
     backend_factory=ByteTrackBackend,
     reader_factory=decoded_frames,
     sample_interval: float = 0.0,
+    checkpoint=None,
 ) -> dict:
     """Resume committed segments; replay incomplete segments with fresh tracker IDs."""
     if (
@@ -616,13 +641,17 @@ def track_videos(
                             desc=video.video_id, unit="frame", leave=False
                         ) as progress,
                     ):
-                        for frame in batched_frames(sampled_frames(reader, start, sample_interval), 4):
+                        for frame in batched_frames(
+                            sampled_frames(reader, start, sample_interval), 4
+                        ):
                             try:
                                 sid = f"seg-{int((frame.timestamp_sec - start) // segment_seconds):06d}"
                                 if sid != current:
                                     if segment is not None:
                                         commit_segment(conn, segment)
                                         if not segment.failed:
+                                            if checkpoint is not None:
+                                                checkpoint(conn, state)
                                             result["segments_done"] += 1
                                             result["frames_done"] += len(segment.rows)
                                         segment.close()
@@ -647,7 +676,8 @@ def track_videos(
                                     try:
                                         if (
                                             previous is not None
-                                            and frame.timestamp_sec - previous > (0.75 if sample_interval else 0.5)
+                                            and frame.timestamp_sec - previous
+                                            > (0.75 if sample_interval else 0.5)
                                         ):
                                             raise ValueError(
                                                 "PTS gap exceeds 0.5s; refusing to connect tracks"
@@ -705,6 +735,8 @@ def track_videos(
                     if segment is not None:
                         commit_segment(conn, segment)
                         if not segment.failed:
+                            if checkpoint is not None:
+                                checkpoint(conn, state)
                             result["segments_done"] += 1
                             result["frames_done"] += len(segment.rows)
                         segment.close()
@@ -755,11 +787,32 @@ def main() -> int:
     duration.add_argument("--duration-sec", type=float, default=10)
     duration.add_argument("--full-video", action="store_true")
     parser.add_argument("--segment-seconds", type=float, default=10)
-    parser.add_argument("--sample-interval-sec", type=float, choices=(0, 0.5), default=0)
+    parser.add_argument(
+        "--sample-interval-sec", type=float, choices=(0, 0.5), default=0
+    )
+    parser.add_argument("--checkpoint-zip", type=Path)
     parser.add_argument("--device", choices=("cuda", "cpu"), default="cuda")
     parser.add_argument("--video-id", action="append")
     args = parser.parse_args()
     try:
+        checkpoint = None
+        if args.checkpoint_zip:
+            from pipeline.cctv.cloud import tracking_checkpoint
+
+            manifest = load_manifest(args.manifest)
+            target = args.checkpoint_zip.resolve()
+            reject_link(target)
+            if target.is_relative_to(manifest.raw_root.resolve()) or any(
+                target.is_relative_to(p.resolve().parent)
+                for p in (
+                    args.manifest,
+                    args.traffic_config,
+                    args.model_config,
+                    args.tracker_config,
+                )
+            ):
+                raise ValueError("Checkpoint must be outside raw/config/model folders")
+            checkpoint = lambda conn, state: tracking_checkpoint(conn, state, target)
         result = track_videos(
             args.manifest,
             args.traffic_config,
@@ -772,6 +825,7 @@ def main() -> int:
             args.device,
             args.video_id,
             sample_interval=args.sample_interval_sec,
+            checkpoint=checkpoint,
         )
         print(json.dumps(result, indent=2))
         return 1 if result["error"] else 0

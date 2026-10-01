@@ -7,6 +7,7 @@ import io
 import json
 import os
 import shutil
+import sqlite3
 import subprocess
 import sys
 import threading
@@ -18,7 +19,7 @@ from pathlib import Path
 
 import av
 from fastapi import HTTPException, Request
-from fastapi.responses import Response
+from fastapi.responses import Response, FileResponse
 from pydantic import ValidationError
 from starlette.concurrency import run_in_threadpool
 from tqdm import tqdm
@@ -74,6 +75,7 @@ class Workflow:
         # ponytail: one local job; use a queue only if concurrent users are required.
         self.lock = threading.RLock()
         self.thread = None
+        self.importing = False
         self.process = None
         self.cancelled = threading.Event()
         self.closing = False
@@ -196,7 +198,7 @@ class Workflow:
             return self.get(dataset_id)
 
     def idle(self) -> None:
-        if self.thread and self.thread.is_alive():
+        if self.importing or (self.thread and self.thread.is_alive()):
             raise ValueError("Đang xử lý một tác vụ; đợi hoàn tất hoặc bấm Dừng.")
 
     def prepare(self, dataset_id: str, payload: dict) -> dict:
@@ -215,10 +217,11 @@ class Workflow:
                 raise ValueError("Chọn phạm vi và chế độ tracking hợp lệ.")
             if scope == "full":
                 start = 0.0
-                duration = min(v["duration"]-v["first_pts"] for v in data["videos"])
+                duration = min(v["duration"] - v["first_pts"] for v in data["videos"])
             if (
                 not 0 <= start
-                or not 1 <= duration or (scope == "range" and duration > 60)
+                or not 1 <= duration
+                or (scope == "range" and duration > 60)
                 or any(
                     start + duration > v["duration"] - v["first_pts"]
                     for v in data["videos"]
@@ -322,16 +325,40 @@ class Workflow:
     def preprocessing_key(self, data: dict) -> dict:
         """Only reuse preprocessing for the same sources, cameras, models and code."""
         from importlib.metadata import version
-        return dict(videos=[dict(id=v["video_id"], camera=v["camera_id"],
-                                source=v["source"], sha256=digest(Path(v["source"]))) for v in data["videos"]],
-                    environment={p:version(p) for p in ("torch","transformers","faiss-cpu","av")},
-                    inputs={p:digest(ROOT / p) for p in ("pipeline/cctv/ingest.py", "pipeline/cctv/index.py",
-                        "pipeline/cctv/preview.py", "scripts/inventory_cctv_evaluation.py",
-                        "pipeline/cctv/clip.py", "outputs/model-cache/clip.json")})
+
+        return dict(
+            videos=[
+                dict(
+                    id=v["video_id"],
+                    camera=v["camera_id"],
+                    source=v["source"],
+                    sha256=digest(Path(v["source"])),
+                )
+                for v in data["videos"]
+            ],
+            environment={
+                p: version(p) for p in ("torch", "transformers", "faiss-cpu", "av")
+            },
+            inputs={
+                p: digest(ROOT / p)
+                for p in (
+                    "pipeline/cctv/ingest.py",
+                    "pipeline/cctv/index.py",
+                    "pipeline/cctv/preview.py",
+                    "scripts/inventory_cctv_evaluation.py",
+                    "pipeline/cctv/clip.py",
+                    "outputs/model-cache/clip.json",
+                )
+            },
+        )
 
     def preprocessing_files(self, run: Path) -> dict:
-        return {str(p.relative_to(run)):digest(p) for name in ("inventory","processed","search-index","video-preview")
-                for p in (run/name).rglob("*") if p.is_file() and p.name != ".ingest.lock"}
+        return {
+            str(p.relative_to(run)): digest(p)
+            for name in ("inventory", "processed", "search-index", "video-preview")
+            for p in (run / name).rglob("*")
+            if p.is_file() and p.name != ".ingest.lock"
+        }
 
     def reuse_preprocessing(self, data: dict, run: Path) -> bool:
         record = self.folder(data["id"]) / "preprocessing.json"
@@ -344,16 +371,42 @@ class Workflow:
         if not source.is_relative_to(self.folder(data["id"]).resolve()):
             raise ValueError("Preprocessing cache outside dataset")
         if self.preprocessing_files(source) != proof["files"]:
-            raise ValueError("Preprocessing cache changed; preserve it and start a new dataset")
+            raise ValueError(
+                "Preprocessing cache changed; preserve it and start a new dataset"
+            )
         if source == run:
             return True
-        for name in ("inventory","processed","search-index","video-preview"):
-            destination = run/name
+        marker = run / "preprocessing-reuse.json"
+        if marker.exists():
+            saved = read_json(marker)
+            if saved["key"] != proof["key"] or saved[
+                "files"
+            ] != self.preprocessing_files(run):
+                raise ValueError("Reused preprocessing changed; preserve this run")
+            return True
+        for name in ("inventory", "processed", "search-index", "video-preview"):
+            destination = run / name
             if not destination.exists():
-                shutil.copytree(source/name,destination,ignore=shutil.ignore_patterns(".ingest.lock"))
+                shutil.copytree(
+                    source / name,
+                    destination,
+                    ignore=shutil.ignore_patterns(".ingest.lock"),
+                )
         if self.preprocessing_files(run) != proof["files"]:
-            raise ValueError("Incomplete preprocessing copy; preserve it and start a new run")
-        save_json(run/"preprocessing-reuse.json", dict(source_run=str(source), key=proof["key"]))
+            raise ValueError(
+                "Incomplete preprocessing copy; preserve it and start a new run"
+            )
+        from pipeline.cctv.cloud import rebase
+
+        rebase(run, {str(source): str(run)})
+        save_json(
+            marker,
+            dict(
+                source_run=str(source),
+                key=proof["key"],
+                files=self.preprocessing_files(run),
+            ),
+        )
         return True
 
     def stages(self, data: dict, run: Path) -> list[tuple[str, str, list[str]]]:
@@ -459,8 +512,11 @@ class Workflow:
                     r("tracking-clips"),
                     "--start-sec",
                     str(p["start_sec"]),
-                    *( ["--full-video"] if p.get("tracking_scope") == "full" else
-                       ["--duration-sec", str(p["duration_sec"])] ),
+                    *(
+                        ["--full-video"]
+                        if p.get("tracking_scope") == "full"
+                        else ["--duration-sec", str(p["duration_sec"])]
+                    ),
                     "--sample-interval-sec",
                     "0.5" if p.get("tracking_mode") == "sampled" else "0",
                     "--segment-seconds",
@@ -607,11 +663,25 @@ class Workflow:
                 finally:
                     timing = run / "stage-timings.jsonl"
                     with timing.open("a", encoding="utf-8") as handle:
-                        handle.write(json.dumps(dict(stage=name, module=module,
-                            elapsed_sec=round(time.perf_counter()-started, 3))) + "\n")
+                        handle.write(
+                            json.dumps(
+                                dict(
+                                    stage=name,
+                                    module=module,
+                                    elapsed_sec=round(time.perf_counter() - started, 3),
+                                )
+                            )
+                            + "\n"
+                        )
                 if module == "pipeline.cctv.preview":
-                    save_json(folder/"preprocessing.json", dict(run=str(run),
-                        key=self.preprocessing_key(job["snapshot"]), files=self.preprocessing_files(run)))
+                    save_json(
+                        folder / "preprocessing.json",
+                        dict(
+                            run=str(run),
+                            key=self.preprocessing_key(job["snapshot"]),
+                            files=self.preprocessing_files(run),
+                        ),
+                    )
             if not job["download"]:
                 if self.cancelled.is_set():
                     raise InterruptedError("Đã dừng trước khi kích hoạt kết quả.")
@@ -774,6 +844,9 @@ class Workflow:
             for path in run.rglob("*.json"):
                 if path.stat().st_size <= 4 * 1024**2:
                     archive.write(path, str(path.relative_to(run)))
+            timing = run / "stage-timings.jsonl"
+            if timing.is_file() and timing.stat().st_size <= 4 * 1024**2:
+                archive.write(timing, timing.name)
             verification = self.folder(dataset_id) / "verify-job.json"
             with self.lock:
                 job = read_json(verification) if verification.exists() else None
@@ -805,7 +878,8 @@ def install(app, workflow: Workflow):
         return dict(
             datasets=workflow.list(),
             active=workflow.active,
-            busy=bool(workflow.thread and workflow.thread.is_alive()),
+            busy=workflow.importing
+            or bool(workflow.thread and workflow.thread.is_alive()),
             models_ready=(ROOT / "outputs/model-cache/clip.json").exists()
             and (ROOT / "outputs/model-cache/yolo/yolo.json").exists(),
         )
@@ -912,6 +986,93 @@ def install(app, workflow: Workflow):
             raise ValueError("Không đọc được frame.")
         except (ValueError, OSError, StopIteration, av.FFmpegError) as exc:
             raise failure(exc)
+
+    @app.get("/cctv/workflow/{dataset_id}/colab/job")
+    def cloud_job(dataset_id: str):
+        from pipeline.cctv.cloud import export_job
+
+        with workflow.lock:
+            try:
+                workflow.idle()
+                archive = workflow.folder(dataset_id) / (
+                    "colab-job-" + uuid.uuid4().hex + ".zip"
+                )
+                export_job(ROOT, workflow.get(dataset_id), archive)
+                return FileResponse(
+                    archive, media_type="application/zip", filename=archive.name
+                )
+            except (ValueError, OSError) as exc:
+                raise failure(exc)
+
+    @app.post("/cctv/workflow/{dataset_id}/colab/result")
+    async def cloud_result(dataset_id: str, request: Request):
+        from pipeline.cctv.cloud import MAX_ARCHIVE, import_result
+
+        origin(request)
+        with workflow.lock:
+            try:
+                workflow.idle()
+                data = workflow.get(dataset_id)
+            except (ValueError, OSError) as exc:
+                raise failure(exc)
+            workflow.importing = True
+            workflow.cancelled.clear()
+        archive = workflow.folder(dataset_id) / (
+            "cloud-upload-" + uuid.uuid4().hex + ".zip"
+        )
+        run = workflow.folder(dataset_id) / ("run-cloud-" + uuid.uuid4().hex)
+        try:
+            size = 0
+            with archive.open("xb") as handle:
+                async for chunk in request.stream():
+                    size += len(chunk)
+                    if size > MAX_ARCHIVE:
+                        raise ValueError("Cloud ZIP exceeds 4 GiB")
+                    handle.write(chunk)
+
+            def activate_import():
+                import_result(ROOT, archive, data, run)
+                if workflow.cancelled.is_set():
+                    raise ValueError("Cloud import đã dừng trước khi kích hoạt")
+                workflow.release()
+                try:
+                    workflow.activate(run)
+                except Exception:
+                    workflow.restore()
+                    raise
+                workflow.active = dataset_id
+                data.pop("job", None)
+                data.pop("active", None)
+                data["run"] = str(run)
+                save_json(workflow.folder(dataset_id) / "dataset.json", data)
+                save_json(
+                    workflow.folder(dataset_id) / "job.json",
+                    dict(
+                        id=run.name,
+                        run=str(run),
+                        status="complete",
+                        stage="Nhập kết quả Colab",
+                        completed=1,
+                        total=1,
+                        error=None,
+                    ),
+                )
+
+            await run_in_threadpool(activate_import)
+            return {"imported": True}
+        except (
+            ValueError,
+            OSError,
+            zipfile.BadZipFile,
+            KeyError,
+            TypeError,
+            sqlite3.Error,
+        ) as exc:
+            raise failure(exc)
+        finally:
+            archive.unlink(missing_ok=True)
+            with workflow.lock:
+                workflow.importing = False
 
     @app.post("/cctv/workflow/{dataset_id}/prepare")
     async def prepare(dataset_id: str, request: Request):

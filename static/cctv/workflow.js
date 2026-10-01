@@ -84,6 +84,7 @@ async function workflowRefresh() {
   $("workflow-stop").disabled=!workflowBusy;
   $("workflow-activate").disabled=busy || !data?.has_results;
   $("workflow-report").disabled=busy || !data?.has_results;
+  $("workflow-colab-export").disabled=$("workflow-colab-import").disabled=busy || !data?.preparation;
   const verification=data?.verification_job;
   $("workflow-verify").disabled=busy || !data?.has_results;
   $("workflow-verify-retry").disabled=busy || !["failed","cancelled","interrupted"].includes(verification?.status);
@@ -180,6 +181,19 @@ for(const [id,payload] of [["workflow-run",{}],["workflow-models",{download:true
 $("workflow-stop").onclick=()=>workflowAction(()=>workflowApi("/cctv/workflow/stop",{}));
 $("workflow-activate").onclick=()=>workflowAction(async()=>{ ready=false; setBusy(false); $("status").textContent="Đang mở bộ dữ liệu…"; try { await workflowApi(`/cctv/workflow/${workflowData.id}/activate`,{}); await refreshTraffic(); await refreshEvents(); await refreshDispatch(); selectSection("search"); $("workflow-panel").open=false; } finally { await checkReady(); } });
 $("workflow-report").onclick=()=>{ location.href=`/cctv/workflow/${workflowData.id}/report`; };
+$("workflow-colab-export").onclick=()=>{ location.href=`/cctv/workflow/${workflowData.id}/colab/job`; };
+$("workflow-colab-import").onchange=()=>workflowAction(async()=>{
+  const file=$("workflow-colab-import").files[0];
+  if(!file) return;
+  if(file.size>4*1024**3) throw new Error("ZIP tối đa 4 GiB; dùng ít video hơn.");
+  workflowUploading=true; await workflowRefresh();
+  try {
+    const response=await fetch(`/cctv/workflow/${workflowData.id}/colab/result`,{method:"POST",headers:{"Content-Type":"application/zip"},body:file});
+    const result=await response.json();
+    if(!response.ok) throw new Error(result.detail || "Không nhập được kết quả Colab.");
+    await checkReady(); await refreshTraffic(); await refreshEvents(); await refreshDispatch();
+  } finally { workflowUploading=false; $("workflow-colab-import").value=""; }
+});
 for(const [id,retry] of [["workflow-verify",false],["workflow-verify-retry",true]]) $(id).onclick=()=>workflowAction(async()=>{ await workflowApi(`/cctv/workflow/${workflowData.id}/verify`,{retry}); });
 setInterval(()=>workflowRefresh().catch(()=>{}),1500);
 workflowRefresh().catch(problem=>workflowProblem(problem.message));

@@ -35,7 +35,7 @@
         </section>
         <section aria-label="Chuẩn bị ROI">
           <h2>2. Vùng đường và đoạn tracking</h2>
-          <p class="hint">Khoảng tracking dùng chung cho các video; mặc định 10 giây, tối đa 60 giây. Keyframe/tìm kiếm dùng toàn video.</p>
+          <p class="hint">Tracking mặc định toàn video, lấy một frame mỗi 0,5 giây. Khi chọn khoảng: tối đa 60 giây, dùng chung cho các video. Keyframe/tìm kiếm dùng toàn video.</p>
           <label for="workflow-scope">Phạm vi tracking</label>
           <select id="workflow-scope"><option value="full">Toàn video</option><option value="range">Theo khoảng</option></select>
           <label for="workflow-tracking-mode">Chế độ tracking</label>
@@ -58,6 +58,9 @@
           <p id="workflow-job" role="status">Chọn dữ liệu để bắt đầu.</p>
           <progress id="workflow-progress" value="0" max="1" aria-label="Các bước xử lý"></progress>
           <div class="workflow-actions"><button id="workflow-activate" type="button" disabled>Mở kết quả trong các tab</button><button id="workflow-report" type="button" disabled>Tải báo cáo ZIP</button></div>
+          <div class="workflow-actions"><button id="workflow-colab-export" type="button" disabled>Xuất job Colab</button><a href="https://colab.research.google.com/github/DFuc1302/CCTV_keyframes_retrieving/blob/main/notebooks/CCTV_Colab.ipynb" target="_blank" rel="noopener noreferrer">Mở notebook Colab</a></div>
+          <label for="workflow-colab-import">Nhập kết quả Colab (.zip, tối đa 4 GiB)</label>
+          <input id="workflow-colab-import" type="file" accept=".zip" disabled>
           <div class="workflow-actions"><button id="workflow-verify" type="button" disabled>Tự kiểm chứng T10</button><button id="workflow-verify-retry" type="button" disabled>Thử lại T10</button></div>
           <p id="workflow-verify-status" role="status">Chạy pipeline trước để tự kiểm chứng demo. M8 và chất lượng độc lập vẫn pending.</p>
           <progress id="workflow-verify-progress" value="0" max="5" aria-label="Tiến độ kiểm chứng T10"></progress>
