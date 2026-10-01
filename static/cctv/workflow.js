@@ -78,10 +78,21 @@ async function workflowRefresh() {
   $("workflow-models").disabled=busy || !data || catalog.models_ready;
   $("workflow-retry").disabled=busy || !["failed","cancelled","interrupted"].includes(job?.status);
   $("workflow-stop").disabled=!workflowBusy;
-  const completed=data?.job?.status === "complete" && !data.job.download;
-  $("workflow-activate").disabled=busy || !completed;
-  $("workflow-report").disabled=!completed;
-  if (data && job) { const log=await workflowApi(`/cctv/workflow/${data.id}/log`); $("workflow-log").textContent=log.text; }
+  $("workflow-activate").disabled=busy || !data?.has_results;
+  $("workflow-report").disabled=busy || !data?.has_results;
+  const verification=data?.verification_job;
+  $("workflow-verify").disabled=busy || !data?.has_results;
+  $("workflow-verify-retry").disabled=busy || !["failed","cancelled","interrupted"].includes(verification?.status);
+  const stepLabels={inventory:"Kiểm kê dữ liệu",roi:"Kiểm tra vùng đường",fixtures:"Kiểm tra phép tính tổng hợp","cpu-tests":"Kiểm tra quy tắc và ràng buộc",http:"Kiểm tra API và dữ liệu hiển thị"};
+  $("workflow-verify-status").textContent=verification ? `${stepLabels[verification.stage] || verification.stage} · ${verification.completed}/${verification.total} · ${verification.status}${verification.error ? " — "+verification.error : ""}` : "Chạy pipeline trước để tự kiểm chứng demo. M8 và chất lượng độc lập vẫn pending.";
+  $("workflow-verify-progress").value=verification?.completed || 0;
+  $("workflow-verify-results").replaceChildren();
+  if(verification?.report) {
+    $("workflow-verify-results").append(element("li","",`Demo đạt · ${verification.report.verified_utc} · không đo accuracy CCTV`));
+    const pendingLabels={T10_1:"Chờ review nội dung và xác minh nhóm video",T10_2:"Chờ người dùng duyệt ROI",T10_3:"Chưa chia calibration/test cho footage",T10_4:"M8 giữ pending",T10_5:"Chưa hiệu chỉnh ngưỡng bằng nhãn độc lập",T10_6:"Chưa đánh giá chất lượng footage",T10_7:"Chưa chạy máy thứ hai"};
+    for(const [task,reason] of Object.entries(verification.report.pending)) $("workflow-verify-results").append(element("li","hint",`${task.replace("_",".")}: ${pendingLabels[task] || reason}`));
+  }
+  if (data && (job || verification)) { const log=await workflowApi(`/cctv/workflow/${data.id}/log${verification && !["queued","running"].includes(job?.status) ? "?verification=true" : ""}`); $("workflow-log").textContent=log.text; }
   if (job?.status === "complete" && data.active && workflowShown !== data.id+job.id) { workflowShown=data.id+job.id; await checkReady(); await refreshTraffic(); await refreshEvents(); await refreshDispatch(); }
 }
 $("workflow-demo").onclick=()=>workflowAction(async()=>{ const data=await workflowApi("/cctv/workflow/datasets",{name:$("workflow-name").value,demo:true}); workflowData=null; $("workflow-dataset").value=""; workflowSelect(data); });
@@ -119,5 +130,6 @@ for(const [id,payload] of [["workflow-run",{}],["workflow-models",{download:true
 $("workflow-stop").onclick=()=>workflowAction(()=>workflowApi("/cctv/workflow/stop",{}));
 $("workflow-activate").onclick=()=>workflowAction(async()=>{ ready=false; setBusy(false); $("status").textContent="Đang mở bộ dữ liệu…"; try { await workflowApi(`/cctv/workflow/${workflowData.id}/activate`,{}); await refreshTraffic(); await refreshEvents(); await refreshDispatch(); selectSection("search"); $("workflow-panel").open=false; } finally { await checkReady(); } });
 $("workflow-report").onclick=()=>{ location.href=`/cctv/workflow/${workflowData.id}/report`; };
+for(const [id,retry] of [["workflow-verify",false],["workflow-verify-retry",true]]) $(id).onclick=()=>workflowAction(async()=>{ await workflowApi(`/cctv/workflow/${workflowData.id}/verify`,{retry}); });
 setInterval(()=>workflowRefresh().catch(()=>{}),1500);
 workflowRefresh().catch(problem=>workflowProblem(problem.message));

@@ -230,6 +230,15 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(self.calls, [])
         with zipfile.ZipFile(io.BytesIO(self.workflow.bundle(dataset))) as archive:
             self.assertIn("t10/report.md", archive.namelist())
+        current = self.workflow.get(dataset)
+        current.update(run=str(folder / "run-new"))
+        current.pop("job")
+        current.pop("active")
+        save_json(folder / "dataset.json", current)
+        self.assertEqual(
+            self.workflow.public(dataset)["verification_job"]["status"], "stale"
+        )
+        self.assertNotIn("report", self.workflow.public(dataset)["verification_job"])
         with patch.object(self.workflow, "thread") as thread:
             thread.is_alive.return_value = True
             with self.assertRaisesRegex(ValueError, "Đang xử lý"):

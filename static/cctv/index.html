@@ -53,6 +53,10 @@
           <p id="workflow-job" role="status">Chọn dữ liệu để bắt đầu.</p>
           <progress id="workflow-progress" value="0" max="1" aria-label="Các bước xử lý"></progress>
           <div class="workflow-actions"><button id="workflow-activate" type="button" disabled>Mở kết quả trong các tab</button><button id="workflow-report" type="button" disabled>Tải báo cáo ZIP</button></div>
+          <div class="workflow-actions"><button id="workflow-verify" type="button" disabled>Tự kiểm chứng T10</button><button id="workflow-verify-retry" type="button" disabled>Thử lại T10</button></div>
+          <p id="workflow-verify-status" role="status">Chạy pipeline trước để tự kiểm chứng demo. M8 và chất lượng độc lập vẫn pending.</p>
+          <progress id="workflow-verify-progress" value="0" max="5" aria-label="Tiến độ kiểm chứng T10"></progress>
+          <ul id="workflow-verify-results"></ul>
           <details><summary>Nhật ký kỹ thuật</summary><pre id="workflow-log"></pre></details>
           <p class="hint">4. Xem các tab bên dưới. 5. Review demo trong Sự kiện và tính proposal mô phỏng; kết quả không phải ground truth hoặc lệnh điều động.</p>
         </section>

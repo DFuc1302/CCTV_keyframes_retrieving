@@ -111,6 +111,7 @@ class Workflow:
 
     def public(self, dataset_id: str) -> dict:
         data = copy.deepcopy(self.get(dataset_id))
+        source_run = data.get("run")
         data["has_results"] = bool(data.get("run"))
         data.pop("run", None)
         for video in data["videos"]:
@@ -123,6 +124,10 @@ class Workflow:
             verification = read_json(path) if path.exists() else None
             if verification:
                 output = Path(verification["run"])
+                if verification["source_run"] != source_run:
+                    verification.update(
+                        status="stale", stage="Run đã đổi; kiểm chứng lại", completed=0
+                    )
                 progress = output / "progress.jsonl"
                 if progress.exists() and verification["status"] == "running":
                     with progress.open("rb") as handle:
