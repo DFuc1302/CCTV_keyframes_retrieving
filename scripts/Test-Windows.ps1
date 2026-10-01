@@ -54,7 +54,7 @@ try {
         $testLog = Join-Path $testOutput 'legacy-tests.txt'
     } else {
         $testArguments = @('-m', 'unittest', '-v', 'test_ui_assets', 'test_folder_filter',
-            'test_n_top_ocr', 'test_align_official_keyframe_maps', 'test_cctv_manifest', 'test_cctv_events', 'test_cctv_events_api', 'test_cctv_incidents', 'test_cctv_resources', 'test_cctv_dispatch', 'test_cctv_dispatch_api', 'test_cctv_demo_acceptance', 'test_cctv_review_preparation', 'test_cctv_review_notes', 'test_cctv_benchmark', 'test_cctv_runtime_benchmark', 'test_cctv_handover',
+            'test_n_top_ocr', 'test_align_official_keyframe_maps', 'test_cctv_manifest', 'test_cctv_events', 'test_cctv_events_api', 'test_cctv_incidents', 'test_cctv_resources', 'test_cctv_dispatch', 'test_cctv_dispatch_api', 'test_cctv_demo_acceptance', 'test_cctv_review_preparation', 'test_cctv_review_notes', 'test_cctv_adjudication', 'test_cctv_benchmark', 'test_cctv_runtime_benchmark', 'test_cctv_handover',
             'test_cctv_ingestion', 'test_cctv_index', 'test_cctv_api', 'test_cctv_preview', 'test_cctv_traffic', 'test_cctv_detect', 'test_cctv_track', 'test_cctv_congestion', 'test_cctv_traffic_api', 'test_python_logged', 'test_powershell_scripts')
         $testLog = Join-Path $testOutput 'core-tests.txt'
     }

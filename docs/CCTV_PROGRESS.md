@@ -38,7 +38,7 @@ Không suy số tuần thực tế đã làm hoặc phần trăm hoàn thành t�
 | M5: gợi ý phân bổ nhân lực | T5.1–T5.2 có baseline mô phỏng | Schema và solver bounded exact có assignments/unmet reasons; T7.2 bổ sung UI chỉ đọc, chưa có vị trí/nguồn lực thật |
 | M6: đánh giá và bàn giao | T6.1–T6.3 có công cụ/tài liệu | Event evaluator, frozen HTTP latency, báo cáo và package bàn giao đã có; nhãn thật và chạy máy thứ hai còn mở |
 | M7: tích hợp demo sự kiện/điều phối | T7.1–T7.3 đạt kỹ thuật cục bộ | Event/evidence, phân bổ mô phỏng, HTTP/browser smoke và runtime mới có; chưa nghiệm thu chất lượng hoặc máy thứ hai |
-| M8: chuẩn bị review/nhãn độc lập | T8.1–T8.2 có công cụ pending | 36 ảnh sạch, sheets/ROI drafts, notes riêng và kiểm tra bất đồng; chưa review thật hoặc tạo ground truth |
+| M8: chuẩn bị review/nhãn độc lập | T8.1–T8.3 có công cụ pending | Tư liệu sạch, notes riêng, comparison và explicit adjudication/export; chưa review thật hoặc tạo ground truth |
 
 Sau hai bản sửa launcher (encoding PowerShell và cổng bận), core suite đã chạy
 lại bằng Windows PowerShell 5.1: **47 tests đạt**, runtime CUDA FP16/NMS đạt.
@@ -169,9 +169,10 @@ T6.3 đã có gói bàn giao/báo cáo và checklist. Bước nghiệm thu tiế
 chạy trên máy thứ hai theo `CCTV_HANDOVER.md`, lưu commit/log/kết quả thực;
 review ROI và tạo nhãn độc lập vẫn còn mở. T7.1 đã có UI event/evidence chỉ
 đọc; T7.2 đã nối phân bổ mô phỏng lên UI và T7.3 nghiệm thu kỹ thuật cục bộ.
-T8.1 đã chuẩn bị bộ mẫu pending, T8.2 có notes riêng và validation. Task
-kỹ thuật tiếp theo T8.3: ghi quyết định adjudication và chuyển schema
-annotation bằng fixtures; không tự phê duyệt hoặc tạo nhãn thật. Chạy máy thứ hai vẫn cần môi trường
+T8.1 đã chuẩn bị bộ mẫu pending, T8.2 có notes riêng và validation, T8.3
+có quyết định adjudication/export sang schema T6.1. Bước nghiệm thu tiếp
+theo cần review/adjudication thực, xác minh groups/splits và ROI; không tự
+phê duyệt hoặc tạo nhãn thật. Chạy máy thứ hai vẫn cần môi trường
 thứ hai thực tế.** Xem `CCTV_TRAFFIC.md` để
 kiểm tra ROI readiness. Tracking cần frame liên tiếp và PTS thật; detections
 keyframes 2 FPS hiện tại chưa chứng minh tracking hoặc lưu lượng hoạt động tốt.
@@ -199,11 +200,17 @@ không tự suy vị trí, thời gian tuyệt đối hoặc hiệu chuẩn tố
 | T7.3: nghiệm thu demo — đạt kỹ thuật cục bộ | HTTP/browser smoke và latency mới đã có; giữ benchmark lịch sử, chưa có nhãn thật/máy thứ hai |
 | T8.1: chuẩn bị review — đã có | 36 ảnh sạch, sáu sheets/ROI drafts và forms pending; checkpoint/resume, không đọc predictions |
 | T8.2: notes/validation — đã có | Hai templates riêng, scope/time/provenance và exact multiset comparison; sáu khoảng demo vẫn pending, không xuất ground truth |
-| T8.3: adjudication/export — tiếp theo | Quyết định rõ ràng, validation và chuyển schema T6.1; kiểm thử fixtures, không thay người review |
+| T8.3: adjudication/export — đã có | Quyết định rõ ràng, notes SHA/coverage/blind/acceptance/time gates, chuyển schema T6.1; demo vẫn sáu khoảng pending |
 
 Sau T8.2: **225 core tests đạt**, pip check/compile/CUDA FP16/NMS đạt.
 11 tests mới dùng fixtures; hai templates và comparison demo giữ sáu khoảng
 pending, không tạo ground truth. Hướng dẫn: `CCTV_REVIEW_NOTES.md`.
+
+Sau T8.3: **235 core tests đạt**, pip check/compile/CUDA FP16/NMS đạt.
+10 tests mới kiểm tra adjudication bằng fixtures. Export demo giữ sáu khoảng
+pending; evaluator T6.1 đọc được và trả NOT_EVALUATED_NO_REVIEWED_INTERVALS,
+metrics null. Resume giữ SHA/mtime 69 files nguồn/tư liệu/artifacts kiểm tra,
+sáu video raw và upstream packages không đổi. Hướng dẫn: `CCTV_ADJUDICATION.md`.
 
 Mỗi task: code/module hoàn chỉnh → kiểm thử phù hợp và dữ liệu mẫu → tài liệu
 PowerShell → Conventional Commit → push. Chạy CLIP phục vụ và detector theo

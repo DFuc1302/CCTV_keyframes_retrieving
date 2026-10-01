@@ -224,3 +224,23 @@ bounds và bảo toàn output/resume. Ghi chú thật và adjudication chưa có
 blind review chỉ là khai báo, không được xác thực. Hướng dẫn Windows:
 `CCTV_REVIEW_NOTES.md`. Windows core suite đạt 225 tests; pip check,
 compile và CUDA FP16/NMS đạt. Bước kỹ thuật kế tiếp T8.3 là adjudication/export.
+
+## Bổ sung T8.3 — explicit adjudication và annotation export
+
+Module `pipeline.cctv.adjudication` tạo template quyết định pending và xuất
+schema annotation T6.1 từ quyết định tường minh. Notes/template/manifest
+SHA, scope, hai reviewer khác nhau, complete/blind, final acceptance và
+decision timestamp được kiểm tra trước xuất reviewed. Adjudicator và
+provenance/reason được giữ ở report riêng. Đồng thuận không tự duyệt;
+pending/unknown không thành negative labels. Khai báo con người chưa được
+xác thực; công cụ không chứng minh blind review hoặc chất lượng nhãn.
+
+Demo local có sáu khoảng pending, 0 reviewed, independent_ground_truth_exported
+false. Evaluator đọc export mới và trả NOT_EVALUATED_NO_REVIEWED_INTERVALS,
+metrics null, split vẫn chưa sẵn sàng. 69 files giữ SHA/mtime sau resume;
+sáu raw videos và upstream artifacts không đổi. Windows core suite đạt 235
+tests, pip check/compile/CUDA FP16/NMS đạt; 10 tests adjudication dùng fixtures
+synthetic. Quy trình/lệnh đầy đủ: `CCTV_ADJUDICATION.md`.
+
+T8.1–T8.3 đã có công cụ; review/adjudication thật, xác nhận groups/splits,
+duyệt ROI và chạy trên máy thứ hai vẫn là điều kiện nghiệm thu còn mở.
