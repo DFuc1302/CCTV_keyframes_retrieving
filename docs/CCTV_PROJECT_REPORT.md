@@ -279,3 +279,20 @@ visualization, chưa đo chất lượng tracking/incident. Quy trình/code/lệ
 Demo v2 đã xuất sáu MP4/1.501 frames với PTS verify; resume skip cả sáu
 không decode lại, 26 files giữ SHA/mtime. Sáu raw videos và tracking/upstream
 packages không đổi. QA frame từ MP4 hiển thị bbox/ID và scope/PTS/pending.
+
+## Bổ sung T9.3 — overlay API/UI chỉ đọc
+
+Traffic tab có nút xem bbox/ID tracking tại cửa sổ nguồn. Optional store
+kiểm tra allowlist/manifest/tracking/raw/source association, count/PTS offset
+và MP4 checksum; ordinary edits invalidate overlay. Missing overlay không
+tắt retrieval hoặc traffic. Raw-preview locator giữ nguyên; overlay sử
+dụng offset source frame đầu, không suy timestamp từ FPS. Không duyệt ROI,
+event labels hoặc gán nguồn lực thật.
+
+Windows core suite đạt 259 tests, pip check/compile/CUDA FP16/NMS đạt.
+RequireOverlays smoke trên 8087 đạt sáu clips/30 windows, 108 protected files
+giữ SHA/mtime. Browser mở N001-V001 source 36,036 → overlay 5,999 giây,
+readyState=4, không console warn/error/media error. Kết quả là technical
+playback, không là đánh giá chất lượng tracking. Latency cũ là historical
+reports gắn code cũ; không chấm như benchmark của app composition mới.
+Code/lệnh và giới hạn: `CCTV_OVERLAY_UI.md`.

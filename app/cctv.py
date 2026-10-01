@@ -22,6 +22,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.cctv_dispatch import DispatchPackage, DispatchStore
 from app.cctv_events import EventStore
+from app.cctv_overlay import OverlayStore
 from app.cctv_traffic import TrafficStore
 from pipeline.cctv.clip import ClipEncoder
 from pipeline.cctv.index import model_recipe
@@ -231,6 +232,8 @@ def create_app(
     roi_preview_dir: Path | None = None,
     event_packages: dict[str, tuple[Path, Path]] | None = None,
     dispatch_store: DispatchStore | None = None,
+    overlay_dir: Path | None = None,
+    overlay_manifest: Path | None = None,
 ) -> FastAPI:
     """Build the CCTV demo using independent config; legacy app remains available."""
     runtime = Runtime(
@@ -387,6 +390,18 @@ def create_app(
                 )
             }
         traffic.start(sources)
+        overlays.start(sources)
+
+    overlays = OverlayStore(
+        overlay_dir
+        or Path(
+            os.getenv(
+                "CCTV_OVERLAY_DIR", ROOT / "outputs/demo-data/tracking-overlay-v2"
+            )
+        ),
+        traffic.tracking,
+        overlay_manifest or ROOT / "configs/cctv.demo.json",
+    )
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -400,6 +415,7 @@ def create_app(
     app = FastAPI(title="CCTV Keyframe Retrieval", lifespan=lifespan)
     app.state.cctv = runtime
     app.state.traffic = traffic
+    app.state.overlays = overlays
     app.state.events = events
     app.state.dispatch = proposals
     app.mount(
@@ -579,11 +595,40 @@ def create_app(
             "total": len(rows),
             "offset": offset,
             "limit": limit,
-            "rows": rows[offset : offset + limit],
+            "rows": [
+                dict(row, tracking_overlay=overlays.evidence(row["evidence"]))
+                for row in rows[offset : offset + limit]
+            ],
             "demo_only": traffic.manifest["demo_only"],
             "thresholds_calibrated": False,
             "operational_ready": False,
         }
+
+    @app.get("/cctv/traffic/overlays")
+    def overlay_catalog():
+        require_ready()
+        return overlays.status()
+
+    @app.get("/cctv/traffic/overlay/{video_id}")
+    def overlay_video(video_id: str):
+        require_traffic()
+        if not overlays.available():
+            raise HTTPException(
+                503,
+                "Video tracking overlay chưa khả dụng; kiểm tra output và khởi động lại demo.",
+            )
+        if video_id not in overlays.paths:
+            raise HTTPException(404, "Không có tracking overlay cho video này.")
+        path, checksum = overlays.paths[video_id]
+        try:
+            if digest(path) != checksum:
+                raise ValueError("Overlay checksum changed")
+        except (OSError, ValueError) as exc:
+            overlays.ready = False
+            raise HTTPException(
+                503, "Tracking overlay đã thay đổi; kiểm tra pipeline."
+            ) from exc
+        return FileResponse(path, media_type="video/mp4")
 
     @app.get("/cctv/traffic/roi/{video_id}")
     def traffic_roi(video_id: str):

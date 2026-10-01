@@ -36,6 +36,7 @@ function trafficProblem(message) {
   $("traffic-error").textContent = message; $("traffic-error").hidden = !message;
   $("traffic-data").hidden = true; trafficSelected = null;
   $("traffic-view").disabled = true;
+  $("traffic-overlay-view").disabled = true;
 }
 async function trafficFetch(url) {
   const response = await fetch(url); const data = await response.json();
@@ -83,6 +84,10 @@ function selectTrafficWindow(row, index) {
   $("traffic-signal").classList.toggle("candidate", row.status === "congestion_candidate");
   $("traffic-evidence").textContent = `${row.motion_pairs} cặp motion · Điều kiện duy trì ${trafficNumber(row.persistent_sec)} giây. Ngưỡng chưa hiệu chỉnh.`;
   $("traffic-view").disabled = false;
+  $("traffic-overlay-view").disabled = !row.tracking_overlay;
+  $("traffic-overlay-notice").textContent = row.tracking_overlay
+    ? "Overlay chứa predictions; ID chỉ có ý nghĩa trong từng segment, ROI chưa duyệt."
+    : "Overlay chưa khả dụng cho cửa sổ này. Video gốc và thống kê vẫn xem được.";
   Array.from($("traffic-bars").children).forEach((button, i) => { button.classList.toggle("selected", i === index); button.setAttribute("aria-pressed", String(i === index)); });
 }
 function renderTrafficRows(rows) {
@@ -109,6 +114,7 @@ async function loadTrafficVideo(offset) {
   const token = ++trafficRequest, vid = $("traffic-video").value;
   trafficLoading = true;
   trafficSelected = null; $("traffic-view").disabled = true;
+  $("traffic-overlay-view").disabled = true;
   $("traffic-prev").disabled = true; $("traffic-next").disabled = true;
   $("traffic-data").setAttribute("aria-busy", "true"); $("traffic-error").hidden = true;
   try {
@@ -131,5 +137,6 @@ $("traffic-refresh").addEventListener("click", refreshTraffic);
 $("traffic-prev").addEventListener("click", () => loadTrafficVideo(Math.max(0, trafficOffset - trafficPageSize)));
 $("traffic-next").addEventListener("click", () => loadTrafficVideo(trafficOffset + trafficPageSize));
 $("traffic-view").addEventListener("click", () => { if (trafficSelected && !trafficLoading) view(trafficSelected.evidence); });
+$("traffic-overlay-view").addEventListener("click", () => { if (trafficSelected && !trafficLoading && trafficSelected.tracking_overlay) view(trafficSelected.tracking_overlay); });
 $("traffic-roi").addEventListener("error", () => trafficProblem("Ảnh ROI chưa khả dụng. Kiểm tra lại trạng thái giao thông."));
 refreshTraffic();

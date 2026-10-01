@@ -34,7 +34,9 @@ def require(condition: bool, message: str) -> None:
         raise ValueError(message)
 
 
-def verify_demo(client: httpx.Client, catalog: dict) -> dict:
+def verify_demo(
+    client: httpx.Client, catalog: dict, require_overlays: bool = False
+) -> dict:
     """Exercise retrieval/assets and three demo packages; fail on missing stages."""
     checks = {}
 
@@ -132,6 +134,50 @@ def verify_demo(client: httpx.Client, catalog: dict) -> dict:
     require(count == traffic["windows"], "Traffic total mismatch")
     checks["traffic_windows"] = count
 
+    if require_overlays:
+        overlays = get("/cctv/traffic/overlays")
+        require(
+            overlays["available"]
+            and overlays["read_only"] is True
+            and overlays["operational_ready"] is False
+            and overlays["roi_approved"] is False,
+            "Tracking overlays unavailable/unsafe",
+        )
+        overlay_rows = {row["video_id"]: row for row in overlays["videos"]}
+        require(
+            set(overlay_rows) == {row["video_id"] for row in traffic["videos"]},
+            "Overlay coverage mismatch",
+        )
+        for vid, overlay in overlay_rows.items():
+            require(
+                overlay["video_url"] == f"/cctv/traffic/overlay/{vid}",
+                "Wrong overlay asset URL",
+            )
+            response = client.get(overlay["video_url"], headers={"Range": "bytes=0-31"})
+            require(
+                response.status_code == 206
+                and len(response.content) == 32
+                and response.headers.get("content-range", "").startswith("bytes 0-31/"),
+                "Overlay Range missing",
+            )
+            result = get(f"/cctv/traffic/windows/{vid}?limit=500")
+            for row in result["rows"]:
+                evidence = row["tracking_overlay"]
+                require(
+                    evidence is not None
+                    and evidence["video_url"] == overlay["video_url"]
+                    and abs(
+                        evidence["video_seek_sec"]
+                        - (
+                            row["evidence"]["timestamp_sec"]
+                            - overlay["playback_to_source_offset_sec"]
+                        )
+                    )
+                    < 1e-8,
+                    "Overlay evidence/offset mismatch",
+                )
+        checks["tracking_overlays"] = len(overlay_rows)
+
     events = get("/cctv/events")
     require(
         events["read_only"] is True and events["operational_ready"] is False,
@@ -222,7 +268,13 @@ def verify_demo(client: httpx.Client, catalog: dict) -> dict:
     )
 
 
-def run(manifest_path: Path, index: Path, output: Path, url: str) -> dict:
+def run(
+    manifest_path: Path,
+    index: Path,
+    output: Path,
+    url: str,
+    require_overlays: bool = False,
+) -> dict:
     """Freeze existing demo files and refuse overwrites; each rerun uses a new output."""
     manifest = load_manifest(manifest_path)
     protected = [
@@ -255,6 +307,8 @@ def run(manifest_path: Path, index: Path, output: Path, url: str) -> dict:
         *ROOT.glob("static/cctv/*"),
         *[v.source for v in manifest.videos],
     ]
+    if require_overlays:
+        folders.append(ROOT / "outputs/demo-data/tracking-overlay-v2")
     for folder in [*protected, *folders]:
         if folder.is_dir():
             paths.extend(
@@ -308,7 +362,7 @@ def run(manifest_path: Path, index: Path, output: Path, url: str) -> dict:
                 code_sha256={name: before[str(ROOT / name)][0] for name in SERVER_CODE},
             ),
         )
-        report = verify_demo(client, catalog)
+        report = verify_demo(client, catalog, require_overlays)
     require(
         before == {str(p): (digest(p), p.stat().st_mtime_ns) for p in paths},
         "Protected demo inputs changed",
@@ -329,9 +383,12 @@ def main() -> int:
     for name in ("manifest", "index-dir", "output"):
         parser.add_argument("--" + name, type=Path, required=True)
     parser.add_argument("--url", default="http://127.0.0.1:8080")
+    parser.add_argument("--require-overlays", action="store_true")
     args = parser.parse_args()
     try:
-        report = run(args.manifest, args.index_dir, args.output, args.url)
+        report = run(
+            args.manifest, args.index_dir, args.output, args.url, args.require_overlays
+        )
         print(json.dumps({k: v for k, v in report.items() if k != "inputs"}, indent=2))
         return 0
     except (

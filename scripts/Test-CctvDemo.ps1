@@ -3,7 +3,8 @@ param(
     [ValidateSet('cuda','cpu')][string]$Device = 'cuda',
     [ValidateRange(1,600)][int]$StartupTimeout = 120,
     [string]$Output = '',
-    [switch]$ExistingServer
+    [switch]$ExistingServer,
+    [switch]$RequireOverlays
 )
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
@@ -15,6 +16,7 @@ $testLog = Join-Path $repositoryRoot "outputs/tests/demo-smoke-$runId.txt"
 $smokeArguments = @('-m', 'scripts.run_cctv_demo_smoke', '--port', "$Port", '--device', $Device,
     '--startup-timeout', "$StartupTimeout", '--output', $Output)
 if ($ExistingServer) { $smokeArguments += '--existing-server' }
+if ($RequireOverlays) { $smokeArguments += '--require-overlays' }
 Push-Location $repositoryRoot
 try {
     Write-Host "CCTV HTTP smoke log: $testLog"

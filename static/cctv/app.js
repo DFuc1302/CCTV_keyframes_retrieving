@@ -58,8 +58,8 @@ function element(tag, className, text) {
   if (text !== undefined) node.textContent = text; return node;
 }
 function view(result) {
-  $("viewer-title").textContent = `${result.video_id} · Camera ${result.camera_id}`;
-  $("viewer-meta").textContent = `${timeLabel(result.timestamp_sec)} trong video · Frame nguồn ${result.frame_idx}`;
+  $("viewer-title").textContent = `${result.video_id} · Camera ${result.camera_id}${result.tracking_overlay ? " · Tracking overlay" : ""}`;
+  $("viewer-meta").textContent = `${timeLabel(result.timestamp_sec)} trong video nguồn · Frame nguồn ${result.frame_idx}${result.tracking_overlay ? " · Predictions, ID theo segment, ROI chưa duyệt" : ""}`;
   $("video-error").hidden = true;
   const video = $("video");
   video.onloadedmetadata = () => {

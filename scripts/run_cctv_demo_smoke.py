@@ -68,6 +68,7 @@ def run(
     device: str = "cuda",
     startup_timeout: float = 120.0,
     existing_server: bool = False,
+    require_overlays: bool = False,
 ) -> dict:
     """Verify current demo packages; manage only a server created by this invocation."""
     if not 1024 <= port <= 65535 or device not in ("cuda", "cpu"):
@@ -120,6 +121,7 @@ def run(
             ROOT / "outputs/demo-data/search-index",
             output,
             url,
+            require_overlays,
         )
     finally:
         try:
@@ -161,6 +163,7 @@ def main() -> int:
     parser.add_argument("--device", choices=("cuda", "cpu"), default="cuda")
     parser.add_argument("--startup-timeout", type=float, default=120)
     parser.add_argument("--existing-server", action="store_true")
+    parser.add_argument("--require-overlays", action="store_true")
     args = parser.parse_args()
     try:
         print(
@@ -171,6 +174,7 @@ def main() -> int:
                     args.device,
                     args.startup_timeout,
                     args.existing_server,
+                    args.require_overlays,
                 ),
                 indent=2,
             )
