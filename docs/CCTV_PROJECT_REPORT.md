@@ -260,3 +260,22 @@ Hướng dẫn/code/lệnh: `CCTV_DEMO_SMOKE.md`.
 
 Windows core suite đạt 244 tests, pip check/compile/CUDA FP16/NMS đạt.
 Socket 8087 bind được lại sau managed run, xác minh server đã giải phóng cổng.
+
+## Bổ sung T9.2 — tracking overlay offline trên CPU
+
+Module `pipeline.cctv.tracking_overlay` vẽ bbox/segment-scoped IDs từ ledger
+và xuất MP4 H.264 trên CPU, không chạy lại model. Source SHA, frame_idx,
+native PTS/timebase/origin, camera/video/run và kích thước được đối chiếu
+khi ghép raw với tracking. MP4 được decode lại để kiểm tra từng PTS; offset
+playback/source giữ timestamp frame đầu thực tế, không dùng start yêu cầu
+thay timestamp nguồn. Banner ghi predictions và ROI pending.
+
+Windows core suite đạt 252 tests, pip check/compile/CUDA FP16/NMS đạt.
+8 tests mới dùng synthetic tracking kiểm tra H.264/PTS, invalid/missing
+frames, scope/source guards, edited output và resume. Đây là baseline
+visualization, chưa đo chất lượng tracking/incident. Quy trình/code/lệnh:
+`CCTV_TRACKING_OVERLAY.md`. Nối overlay vào traffic UI là task T9.3 riêng.
+
+Demo v2 đã xuất sáu MP4/1.501 frames với PTS verify; resume skip cả sáu
+không decode lại, 26 files giữ SHA/mtime. Sáu raw videos và tracking/upstream
+packages không đổi. QA frame từ MP4 hiển thị bbox/ID và scope/PTS/pending.

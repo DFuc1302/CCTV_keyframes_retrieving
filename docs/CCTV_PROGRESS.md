@@ -39,7 +39,7 @@ Không suy số tuần thực tế đã làm hoặc phần trăm hoàn thành t�
 | M6: đánh giá và bàn giao | T6.1–T6.3 có công cụ/tài liệu | Event evaluator, frozen HTTP latency, báo cáo và package bàn giao đã có; nhãn thật và chạy máy thứ hai còn mở |
 | M7: tích hợp demo sự kiện/điều phối | T7.1–T7.3 đạt kỹ thuật cục bộ | Event/evidence, phân bổ mô phỏng, HTTP/browser smoke và runtime mới có; chưa nghiệm thu chất lượng hoặc máy thứ hai |
 | M8: chuẩn bị review/nhãn độc lập | T8.1–T8.3 có công cụ pending | Tư liệu sạch, notes riêng, comparison và explicit adjudication/export; chưa review thật hoặc tạo ground truth |
-| M9: tiện ích chạy thử | T9.1 có managed HTTP smoke | Một lệnh start/ready/check/stop, dùng client T7.3; không thay nghiệm thu nhãn thật |
+| M9: tiện ích chạy thử | T9.1–T9.2 có smoke và overlay offline | Một lệnh HTTP smoke và video tracking PTS thật; không thay nghiệm thu nhãn thật |
 
 Sau hai bản sửa launcher (encoding PowerShell và cổng bận), core suite đã chạy
 lại bằng Windows PowerShell 5.1: **47 tests đạt**, runtime CUDA FP16/NMS đạt.
@@ -203,6 +203,8 @@ không tự suy vị trí, thời gian tuyệt đối hoặc hiệu chuẩn tố
 | T8.2: notes/validation — đã có | Hai templates riêng, scope/time/provenance và exact multiset comparison; sáu khoảng demo vẫn pending, không xuất ground truth |
 | T8.3: adjudication/export — đã có | Quyết định rõ ràng, notes SHA/coverage/blind/acceptance/time gates, chuyển schema T6.1; demo vẫn sáu khoảng pending |
 | T9.1: managed demo smoke — đã có | Một lệnh PowerShell, socket reservation, readiness timeout, HTTP T7.3 và shutdown server sở hữu; existing mode không tạo/dừng server |
+| T9.2: tracking overlay — đã có offline | MP4 H.264 CPU, bbox/segment-scoped ID từ ledger, source/PTS guards, checkpoint/resume; không inference mới hoặc duyệt ROI |
+| T9.3: overlay trên traffic UI — tiếp theo | Route chỉ đọc có provenance, video locator/offset và UI xem clip; không thay schema tracking hoặc phê duyệt |
 
 Sau T8.2: **225 core tests đạt**, pip check/compile/CUDA FP16/NMS đạt.
 11 tests mới dùng fixtures; hai templates và comparison demo giữ sáu khoảng
@@ -218,6 +220,11 @@ T9.1 bổ sung tiện ích theo mục tiêu chạy thử hiện tại: **244 cor
 pip check/compile/CUDA FP16/NMS đạt; managed HTTP smoke trên 8087 passed,
 100 protected files giữ SHA/mtime và socket giải phóng sau shutdown.
 Xem `CCTV_DEMO_SMOKE.md`; nhãn/ROI/máy thứ hai vẫn chưa nghiệm thu.
+
+T9.2: **252 core tests đạt**, pip check/compile/CUDA FP16/NMS đạt; sáu MP4
+overlay CPU có 1.501 frames, PTS output đối chiếu đầy đủ. Resume skip sáu
+video, 26 files giữ SHA/mtime; raw/tracking/upstream giữ nguyên. Bước kỹ thuật
+tiếp theo T9.3 nối overlay vào UI traffic. Xem `CCTV_TRACKING_OVERLAY.md`.
 
 Mỗi task: code/module hoàn chỉnh → kiểm thử phù hợp và dữ liệu mẫu → tài liệu
 PowerShell → Conventional Commit → push. Chạy CLIP phục vụ và detector theo
