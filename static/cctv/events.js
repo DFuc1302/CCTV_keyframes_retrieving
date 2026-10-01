@@ -32,6 +32,27 @@ function renderEvent(row) {
     button.type = "button"; button.addEventListener("click", () => view(loc)); links.append(button);
   });
   card.append(links, element("p", "hint", row.event_id));
+  if (typeof workflowData !== "undefined" && workflowData?.active) {
+    const form=element("div","review-demo-form"), message=element("p","hint");
+    form.append(element("p","demo-notice","Review demo một người — không tạo nhãn độc lập M8."));
+    const reviewer=element("input"), reason=element("input"), decision=element("select");
+    reviewer.maxLength=100; reason.maxLength=1000;
+    for(const [input,labelText,placeholder] of [[reviewer,"Tên người review","Tên của bạn"],[reason,"Lý do quyết định","Bằng chứng quan sát được hoặc lý do chưa chắc"]]) { const label=element("label","",labelText); input.placeholder=placeholder; label.append(input); form.append(label); }
+    for(const [value,label] of [["needs_more_evidence","Cần thêm bằng chứng"],["confirmed","Xác nhận trong demo"],["rejected","Bác bỏ trong demo"]]) { const option=element("option","",label); option.value=value; decision.append(option); }
+    const decisionLabel=element("label","","Quyết định demo"); decisionLabel.append(decision); form.append(decisionLabel);
+    const review=element("button","outline-button","Lưu review demo"); review.type="button";
+    const officers=element("input"), priority=element("input"), skill=element("select");
+    officers.type="number"; officers.min=1; officers.max=240; officers.value=2;
+    priority.type="number"; priority.min=1; priority.max=5; priority.value=4;
+    for(const [input,labelText] of [[officers,"Số người cần (nguồn lực mô phỏng)"],[priority,"Ưu tiên 1–5"]]) { const label=element("label","",labelText); label.append(input); form.append(label); }
+    for(const [value,label] of [["scene_assessment","Đánh giá hiện trường"],["traffic_control","Điều tiết giao thông"]]) { const option=element("option","",label); option.value=value; skill.append(option); }
+    const skillLabel=element("label","","Kỹ năng cần"); skillLabel.append(skill); form.append(skillLabel);
+    const propose=element("button","outline-button","Tính phân bổ mô phỏng"); propose.type="button";
+    const packageId=$("events-package").value;
+    review.onclick=async()=>{ review.disabled=true; message.textContent="Đang lưu…"; try { if(!reviewer.value.trim() || !reason.value.trim()) throw new Error("Nhập tên và lý do trước khi lưu."); await workflowApi(`/cctv/workflow/review/${packageId}`,{event_id:row.event_id,decision:decision.value,reviewer:reviewer.value.trim(),reason:reason.value.trim(),expected_revision:row.revision}); await loadEvents(); await refreshDispatch(); } catch(problem) { message.textContent=problem.message; } finally {review.disabled=false;} };
+    propose.onclick=async()=>{ propose.disabled=true; message.textContent="Đang tính…"; try { const result=await workflowApi(`/cctv/workflow/proposal/${packageId}`,{event_id:row.event_id,min_officers:Number(officers.value),priority:Number(priority.value),required_skills:[skill.value]}); message.textContent=`${result.assignments.length} assignment, ${result.unmet_demands.length} chưa đáp ứng. Xem tab Phân bổ mô phỏng.`; await refreshDispatch(); } catch(problem) { message.textContent=problem.message; } finally {propose.disabled=false;} };
+    form.append(review,propose,message); card.append(form);
+  }
   return card;
 }
 async function loadEvents() {
@@ -44,7 +65,7 @@ async function loadEvents() {
     if (token !== eventRequest) return;
     eventTotal = data.total;
     data.rows.forEach(row => $("events-list").append(renderEvent(row)));
-    $("events-status").textContent = `${data.total} sự kiện · ${eventPackageLabels[packageId] || packageId} · chỉ đọc`;
+    $("events-status").textContent = `${data.total} sự kiện · ${eventPackageLabels[packageId] || packageId} · ${typeof workflowData !== "undefined" && workflowData?.active ? "review demo" : "chỉ đọc"}`;
     $("events-empty").hidden = data.total > 0;
     $("events-empty").textContent = "Gói đã được kiểm tra và hiện không có ứng viên. Kết quả này chưa chứng minh footage không có sự cố.";
     $("events-page").textContent = data.total ? `${eventOffset + 1}–${eventOffset + data.rows.length} / ${data.total}` : "0 sự kiện";

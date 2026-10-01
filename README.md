@@ -26,6 +26,7 @@ videos -> manifest -> frames -> dedupe -> merge
 
 ## Start with the documentation
 
+- [CCTV full-process demo UI](docs/CCTV_UI_WORKFLOW.md) — double-click `Open-CctvDemo.cmd`, choose/upload videos, prepare ROI, run processing, review, simulate allocation and export a report in one UI.
 - [CCTV pending review preparation](docs/CCTV_REVIEW_PREPARATION.md) — clean footage references, separate ROI drafts and pending independent annotation forms.
 - [CCTV demo acceptance](docs/CCTV_DEMO_ACCEPTANCE.md) — repeatable local HTTP integration checks and latency after event/dispatch UI integration.
 - [CCTV simulated dispatch UI](docs/CCTV_DISPATCH_UI.md) — read-only proposals, personnel/reserve limits and current review/input guards.

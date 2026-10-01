@@ -1,5 +1,23 @@
 # Đối chiếu kế hoạch và tiến độ CCTV
 
+Ưu tiên hiện tại theo người dùng: **toàn bộ dữ liệu là demo; xử lý đầy đủ qua
+một UI thân thiện**. M11 triển khai trong `CCTV_UI_WORKFLOW.md`: nhập demo/upload,
+gán camera/ROI, tracking bounded, pipeline tuần tự, tra cứu/evidence, review
+demo, proposal mô phỏng, báo cáo ZIP và launcher Windows một click.
+Smoke thực video mới đạt 12/12 stage; M8 và các gate chất lượng M10 vẫn pending.
+
+| Task UI | Trạng thái | Kiểm chứng |
+| --- | --- | --- |
+| T11.1 Dataset demo/upload và camera | Complete | Upload video thật qua HTTP; giới hạn filename/size/origin có test |
+| T11.2 ROI và tracking interval | Complete | UI lưu polygon pending, mặc định 10 giây, max 60 giây |
+| T11.3 Job, GPU tuần tự và resume | Complete | Smoke 12/12 stage; failure/retry và shutdown có test |
+| T11.4 Mở kết quả vào các tab | Complete | Text query 12 kết quả; video seek giây 8; 5 traffic windows |
+| T11.5 Review, proposal và export | Complete | Journal revision 1, pending gate 0/1, tải ZIP qua browser |
+| T11.6 Launcher và hồi quy Windows | Complete | PowerShell parser, 264 core tests, CUDA FP16/NMS, Ruff/JS checks |
+
+File chooser tự động qua Chrome extension chưa nghiệm thu do chưa có quyền
+file URL; upload API đã kiểm thử. Chi tiết và giới hạn nằm trong hướng dẫn M11.
+
 Ngày cập nhật: 2026-10-01. T3.5 tiếp nối traffic windows tại `8fdba1a`;
 commit triển khai được ghi trong Git history.
 

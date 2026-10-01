@@ -193,12 +193,20 @@ class Runtime:
     def text(self, query: str, top_k: int) -> dict:
         """Serialize text/image inference through a single model."""
         with self.lock:
+            if not self.ready:
+                raise HTTPException(
+                    503, "Đang xử lý dữ liệu; tìm kiếm sẽ sẵn sàng sau khi hoàn tất."
+                )
             return self.results(self.encoder.text(query), top_k)
 
     def image(self, payload: bytes, top_k: int) -> dict:
         """Validate/decode in memory only; do not persist query images."""
         try:
             with self.lock:
+                if not self.ready:
+                    raise HTTPException(
+                        503, "Đang xử lý dữ liệu; chờ hoàn tất rồi tìm kiếm."
+                    )
                 with Image.open(BytesIO(payload)) as image:
                     if (
                         image.format not in {"JPEG", "PNG", "WEBP"}
@@ -234,6 +242,7 @@ def create_app(
     dispatch_store: DispatchStore | None = None,
     overlay_dir: Path | None = None,
     overlay_manifest: Path | None = None,
+    workflow_dir: Path | None = None,
 ) -> FastAPI:
     """Build the CCTV demo using independent config; legacy app remains available."""
     runtime = Runtime(
@@ -410,6 +419,10 @@ def create_app(
         try:
             yield
         finally:
+            workflow.closing = True
+            workflow.stop()
+            if workflow.thread:
+                await run_in_threadpool(workflow.thread.join, 15)
             runtime.close()
 
     app = FastAPI(title="CCTV Keyframe Retrieval", lifespan=lifespan)
@@ -418,6 +431,206 @@ def create_app(
     app.state.overlays = overlays
     app.state.events = events
     app.state.dispatch = proposals
+    from app.cctv_workflow import Workflow, install, read_payload
+
+    previous = None
+
+    def release_workflow() -> None:
+        nonlocal previous
+        with runtime.lock:
+            previous = (
+                runtime.index_dir,
+                runtime.preview_dir,
+                traffic,
+                overlays,
+                events,
+                proposals,
+            )
+            runtime.close()
+
+    def activate_workflow(run: Path) -> None:
+        nonlocal traffic, overlays, events, proposals
+        with runtime.lock:
+            runtime.close()
+            runtime.videos = {}
+            runtime.index_dir, runtime.preview_dir = (
+                run / "search-index",
+                run / "video-preview",
+            )
+            runtime.start()
+            if not runtime.ready:
+                raise ValueError("Index chưa sẵn sàng: " + str(runtime.error))
+            traffic = TrafficStore(
+                run / "traffic-draft-v1",
+                run / "tracking-clips",
+                run / "roi-draft-previews",
+            )
+            overlays = OverlayStore(
+                run / "tracking-overlay-v2",
+                run / "tracking-clips",
+                run / "configs/manifest.json",
+            )
+            events = EventStore(
+                {
+                    name: (run / folder, run / (name + "-reviews"))
+                    for name, folder in (
+                        ("congestion", "events-v1"),
+                        ("incidents", "incidents-draft-v1"),
+                        ("demo", "events-demo-v1"),
+                    )
+                }
+            )
+            packages = {
+                "simulation": DispatchPackage(
+                    run / "dispatch-simulation-v1", run / "configs/simulation.json"
+                )
+            }
+            if (run / "proposal-current.json").exists():
+                pointer = json.loads(
+                    (run / "proposal-current.json").read_text(encoding="utf-8")
+                )
+                package = pointer["package_id"]
+                packages["review_gate"] = DispatchPackage(
+                    run / pointer["output"],
+                    run / pointer["demands"],
+                    *events.packages[package],
+                )
+            proposals = DispatchStore(
+                run / "configs/manifest.json", run / "configs/resources.json", packages
+            )
+            start_traffic()
+            if not traffic.available() or not overlays.available():
+                raise ValueError("Traffic/overlay chưa sẵn sàng; xem nhật ký pipeline.")
+            (
+                app.state.traffic,
+                app.state.overlays,
+                app.state.events,
+                app.state.dispatch,
+            ) = traffic, overlays, events, proposals
+
+    def restore_workflow() -> None:
+        nonlocal traffic, overlays, events, proposals
+        if previous is not None:
+            with runtime.lock:
+                runtime.close()
+                (
+                    runtime.index_dir,
+                    runtime.preview_dir,
+                    traffic,
+                    overlays,
+                    events,
+                    proposals,
+                ) = previous
+                runtime.videos = {}
+                runtime.start()
+                start_traffic()
+                (
+                    app.state.traffic,
+                    app.state.overlays,
+                    app.state.events,
+                    app.state.dispatch,
+                ) = traffic, overlays, events, proposals
+
+    workflow = Workflow(
+        workflow_dir
+        or (
+            (index_dir.parent / "ui-workflow")
+            if index_dir
+            else ROOT / "outputs/ui-workflow"
+        ),
+        release_workflow,
+        activate_workflow,
+        restore_workflow,
+        runtime.device,
+    )
+    app.state.workflow = workflow
+    install(app, workflow)
+
+    @app.post("/cctv/workflow/review/{package_id}")
+    async def workflow_review(package_id: str, request: Request):
+        if request.headers.get("origin") != str(request.base_url).rstrip("/"):
+            raise HTTPException(403, "Chỉ review từ UI ứng dụng.")
+        payload = await read_payload(request)
+        from pipeline.cctv.event_review import submit_review
+
+        def submit():
+            with workflow.lock:
+                workflow.idle()
+                if workflow.active is None or package_id not in events.packages:
+                    raise ValueError(
+                        "Chọn bộ dữ liệu đã xử lý qua UI trước khi review."
+                    )
+                return submit_review(
+                    *events.packages[package_id],
+                    payload["event_id"],
+                    payload["decision"],
+                    payload["reviewer"],
+                    payload["reason"],
+                    payload["expected_revision"],
+                ).model_dump(mode="json")
+
+        try:
+            return await run_in_threadpool(submit)
+        except (ValueError, KeyError, OSError) as exc:
+            raise HTTPException(409, str(exc)) from exc
+
+    @app.post("/cctv/workflow/proposal/{package_id}")
+    async def workflow_proposal(package_id: str, request: Request):
+        if request.headers.get("origin") != str(request.base_url).rstrip("/"):
+            raise HTTPException(403, "Chỉ phân bổ từ UI ứng dụng.")
+        payload = await read_payload(request)
+        from pipeline.cctv.dispatch import EventScenario, propose_dispatch
+        from pipeline.cctv.ingest import save_json
+
+        def propose():
+            with workflow.lock:
+                workflow.idle()
+                if workflow.active is None or package_id not in events.packages:
+                    raise ValueError("Chọn bộ dữ liệu đã xử lý qua UI trước.")
+                run = Path(workflow.get(workflow.active)["run"])
+                scenario = EventScenario.model_validate_json(
+                    json.dumps(
+                        dict(
+                            schema_version=1,
+                            mode="simulation",
+                            kind="event_package",
+                            demands=[
+                                dict(
+                                    demand_id="UI-DEMAND",
+                                    event_id=payload["event_id"],
+                                    min_officers=payload["min_officers"],
+                                    priority=payload["priority"],
+                                    required_skills=payload["required_skills"],
+                                    max_travel_sec=180.0,
+                                )
+                            ],
+                        )
+                    )
+                )
+                token = uuid.uuid4().hex
+                demands, output = "demands-" + token + ".json", "proposal-" + token
+                save_json(run / demands, scenario.model_dump(mode="json"))
+                result = propose_dispatch(
+                    run / "configs/manifest.json",
+                    run / "configs/resources.json",
+                    run / demands,
+                    run / output,
+                    *events.packages[package_id],
+                )
+                proposals.packages["review_gate"] = DispatchPackage(
+                    run / output, run / demands, *events.packages[package_id]
+                )
+                save_json(
+                    run / "proposal-current.json",
+                    dict(package_id=package_id, demands=demands, output=output),
+                )
+                return result
+
+        try:
+            return await run_in_threadpool(propose)
+        except (ValueError, KeyError, OSError) as exc:
+            raise HTTPException(400, str(exc)) from exc
+
     app.mount(
         "/static", StaticFiles(directory=ROOT / "static/cctv"), name="cctv-static"
     )

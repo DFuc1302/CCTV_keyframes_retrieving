@@ -78,11 +78,12 @@ class PowerShellScriptTests(unittest.TestCase):
         root = Path(__file__).resolve().parent
         command = (
             "$tokens = $null; $parseErrors = $null; "
+            "foreach ($script in @('Start-CctvDemo.ps1','Open-CctvDemo.ps1')) { "
             "[System.Management.Automation.Language.Parser]::ParseFile("
-            r"(Join-Path (Get-Location) 'scripts\Start-CctvDemo.ps1'), "
+            r"(Join-Path (Get-Location) ('scripts\' + $script)), "
             "[ref]$tokens, [ref]$parseErrors) | Out-Null; "
             "if ($parseErrors.Count) { "
-            "$parseErrors | ForEach-Object { Write-Output $_.Message }; exit 1 }"
+            "$parseErrors | ForEach-Object { Write-Output $_.Message }; exit 1 } }"
         )
         result = subprocess.run(
             ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", command],
