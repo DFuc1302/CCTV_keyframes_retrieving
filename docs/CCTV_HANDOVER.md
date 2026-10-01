@@ -4,7 +4,7 @@
 
 Code/config/docs/tests nằm trên GitHub. Video, keyframes, model cache, index
 và reports nằm ngoài Git. Báo cáo [CCTV_PROJECT_REPORT.md](CCTV_PROJECT_REPORT.md)
-tổng hợp kết quả kỹ thuật và giới hạn từ M0–T6.2. Máy thứ hai **chưa chạy**;
+tổng hợp kết quả kỹ thuật và giới hạn đến M11. Máy thứ hai **chưa chạy**;
 checklist dưới đây không phải bằng chứng đã nghiệm thu.
 
 `scripts/export_cctv_handover.py` đọc ba publications đã hoàn tất: HTTP runtime
@@ -33,6 +33,31 @@ vô tình, không thay thế chữ ký bảo mật. Template luôn NOT_RUN/pendi
 khi nghiệm thu thật, ghi kết quả vào **bản sao ngoài package đã seal**.
 
 ## Chuẩn bị máy thứ hai
+
+### T10.7 — tuyến nghiệm thu full-process UI
+
+Sau setup môi trường bên dưới, người dùng demo xử lý dữ liệu bằng
+`Open-CctvDemo.cmd` theo [CCTV_UI_WORKFLOW.md](CCTV_UI_WORKFLOW.md). Các lệnh
+stage trong tài liệu này là tuyến tái lập kỹ thuật tùy chọn, không bắt buộc
+người dùng UI phải chạy từng script.
+
+1. Ghi pinned commit (M11 là `bcc8e64`), máy/GPU/driver, Python/PowerShell,
+   package versions và log setup/tests. Không sao chép `.venv` máy đầu.
+2. Dùng bản sao demo được phép chuyển; đối chiếu SHA nguồn giữa hai máy.
+   Mở launcher, chọn demo/upload và dùng cùng ROI draft/khoảng tracking.
+3. Chạy pipeline trên UI. Lưu progress/log; kiểm tra thành công, retry/resume,
+   raw integrity. Không yêu cầu inference GPU giống từng bit giữa hai máy.
+4. Kiểm tra text/image query, keyframe/video seek, traffic/overlay/evidence,
+   review needs_more_evidence và proposal bị gate chặn. Lưu evidence tại máy mới.
+5. Tải ZIP từ UI; giữ recipe/model/source provenance, counts và flags demo.
+   Đối chiếu evaluator counts chỉ khi có cùng nhãn/config đủ gate; không tạo
+   quality metrics từ footage pending. Đo runtime riêng nếu nghiệm thu latency.
+6. Điền **bản sao** `second-machine.pending.json` hiện có bằng log thực và
+   đường dẫn evidence, không sửa template đã seal. Check chưa chạy giữ pending.
+
+Hiện checklist chỉ được chuẩn bị; không có machine_id/tested_commit/log máy
+thứ hai nên trạng thái vẫn **NOT_RUN**. ZIP M11 không đóng gói raw/weights;
+chuyển dữ liệu/cache được phép và setup môi trường là công việc riêng.
 
 Yêu cầu Windows 11 Native, PowerShell, Python 3.11 x64, Git, FFmpeg/ffprobe
 trong PATH và NVIDIA CUDA tương thích runtime pinned. Dùng checklist máy

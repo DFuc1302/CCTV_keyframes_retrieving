@@ -322,6 +322,10 @@ thuật hoàn tất không đồng nghĩa content/group verification hoàn tất
 Theo cập nhật người dùng: chỉ một reviewer, giữ M8 pending và chờ thông tin.
 T10.2–T10.6 chờ ROI/groups/nhãn đủ gate; không chạy calibration trên demo
 pending. T10.7 chưa có máy thứ hai được truy cập/chạy; vẫn NOT_RUN.
+T10.8 đã cập nhật báo cáo đến M11 và chuẩn bị kịch bản bảo vệ demo 10 phút/Q&A;
+checklist T10.7 bổ sung tuyến UI sau setup. Đối chiếu artifacts/log hiện có,
+không chạy lại inference cho thay đổi tài liệu. Chưa có rehearsal/bảo vệ,
+quality metrics hoặc kết quả máy thứ hai mới; các phần này vẫn pending.
 Kiểm chứng bước chuẩn bị: **261 core tests đạt**, pip check/compile/CUDA
 FP16/NMS đạt; bản sao ba forms working đã tạo mà không phê duyệt hoặc gán nhãn.
 

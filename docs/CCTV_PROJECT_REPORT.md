@@ -1,9 +1,10 @@
 # Báo cáo kỹ thuật đồ án CCTV — VGU Explore Computer Science
 
 Ngày lập: 2026-10-01. Phạm vi: baseline demo trên Windows 11 Native,
-PowerShell, RTX 4070 Laptop 8GB. Báo cáo phản ánh M0–T8.1; benchmark latency
-T6.2 là phép đo lịch sử. Chưa nghiệm thu chạy máy thứ hai hoặc chất lượng
-nhận diện trên nhãn thật.
+PowerShell, RTX 4070 Laptop 8GB. Cập nhật T10.8 bao gồm M9 và M11 tại commit
+`bcc8e64`. Toàn bộ dữ liệu là demo theo phạm vi người dùng. Các phép đo latency
+T6.2/T7.3/T9.4 là lịch sử gắn phiên bản code, chưa đo latency M11. Chưa nghiệm
+thu chạy máy thứ hai hoặc chất lượng nhận diện trên nhãn độc lập.
 
 ## 1. Bài toán và kết quả hiện có
 
@@ -13,9 +14,10 @@ phân bổ nhân lực. Kiến trúc phát triển từ pipeline/index/API kế 
 viết lại: giữ keyframe naming, CSV map, SQLite frames và ID FAISS.
 
 Đã chạy được text/image retrieval, video seek, detector xe, tracking clip,
-traffic windows, đóng gói evidence và review bằng CLI, rule nghi sự cố,
+traffic windows, đóng gói evidence và review, rule nghi sự cố,
 solver nhân lực mô phỏng, event evaluator và phép đo HTTP latency.
-Event/dispatch UI chỉ đọc đã có ở T7.1–T7.2.
+M11 cho phép chọn demo/upload video, gán camera/ROI, chạy pipeline, review
+demo, tính proposal và tải báo cáo trong một UI; mở bằng `Open-CctvDemo.cmd`.
 Chưa có multimodal fusion OCR/ASR cho CCTV hoặc hệ thống
 nhận diện tai nạn đã kiểm định. Các kết quả này là nền demo có thể kiểm thử.
 
@@ -36,6 +38,14 @@ Không suy các thông tin này từ tên file/overlay. Hai ROI draft vẫn pend
 | Rule nghi sự cố | 0 candidate trên sáu clip | Không chứng minh video không có tai nạn |
 | Event labels | 6 interval pending; split unassigned | Chưa đủ điều kiện tính quality metrics |
 
+Smoke M11 dùng **một video test-pattern H.264 tổng hợp riêng**, 12 giây,
+không cộng vào sáu MOV hay dùng để đánh giá detector: 24 keyframes/index 768D,
+tracking 10 giây/250 frames/2 segments, 5 traffic windows và MP4 overlay.
+Job hoàn tất 12/12 stage. ROI pending, thresholds_calibrated=false và
+operational_ready=false. Case tổng hợp được review needs_more_evidence;
+proposal có 0 assignment/1 unmet. Kết quả chứng minh luồng phần mềm chạy,
+không chứng minh nhận diện sự cố hoặc tắc đường chính xác.
+
 ## 3. Kiến trúc và cơ sở thiết kế
 
 ```mermaid
@@ -53,6 +63,10 @@ flowchart LR
     J --> K[Bounded simulated allocation]
     D --> L[Technical HTTP benchmark]
     J --> M[Annotation/split event evaluator]
+    U[UI dataset + ROI + job] --> B
+    U --> G
+    U --> J
+    U --> K
 ```
 
 CLIP dùng revision cố định, một instance theo stage, FP16/autocast trên CUDA;
@@ -78,6 +92,13 @@ staff; giữ whole team, skills, allowed zones, shared budget và reserve.
 Event source lấy trạng thái từ review journal, không tin review_status do
 request tự khai. Không gửi lệnh điều động hoặc gán vị trí camera thực tế.
 
+M11 gọi lại các CLI hiện có bằng worker local, một job tại một thời điểm.
+CLIP phục vụ được giải phóng trước index/tracking và nạp lại khi hoàn tất.
+Upload được sao chép vào output riêng; raw demo có sẵn vẫn chỉ đọc. Mỗi run
+có cấu hình riêng và checkpoint của từng stage; retry giữ recipe cũ. Review
+UI dùng revision guard, proposal dùng journal/nguồn lực hiện tại. M8 vẫn
+pending: review demo một người không thay thế nhãn độc lập.
+
 ## 4. Kiểm thử và đánh giá
 
 Các module dùng contracts có version, output riêng, checksum publication,
@@ -87,6 +108,12 @@ matching và solver oracle. Core suite T6.2: **182 tests đạt**, pip check và
 CUDA FP16/NMS đạt; không tuyên bố full legacy suite đã đạt.
 Sau bổ sung exporter T6.3, core suite đạt **189 tests**; package evidence
 được kiểm tra source binding, corruption, raw protection và no-op resume.
+Tại M11, Windows core suite đạt **264 tests**, pip check/compile/CUDA FP16/NMS
+đạt; 25 focused tests đạt. Không chạy lại inference hoặc core suite chỉ để
+cập nhật tài liệu T10.8. Browser kiểm tra text query trả 12 kết quả, mở video
+seek giây 8/duration 12/readyState 4, traffic và review gate, tải ZIP. Native
+file chooser qua extension chưa kiểm chứng vì thiếu quyền file URL;
+upload HTTP/backend được kiểm thử bằng file thật.
 
 10 quỹ đạo synthetic kiểm thử rule nghi sự cố, gồm trường hợp đèn đỏ tạo
 false alarm. Event evaluator kiểm tra temporal IoU 0,1/0,3/0,5, matching exact
@@ -128,6 +155,8 @@ Solver gán SIM-TEAM-A (2 người) cho demand priority 4; giữ 2 người dự
 | Event quality pending | `outputs/demo-data/event-benchmark-pending-v1/benchmark_report.json` |
 | HTTP latency | `outputs/demo-data/runtime-benchmark-v1/runtime_report.json` |
 | Core tests | `outputs/tests/core-tests.txt`; log này được cập nhật sau mỗi task |
+| UI workflow M11 | `docs/CCTV_UI_WORKFLOW.md`, commit `bcc8e64`, `outputs/tests/m11-final-focused.txt` |
+| M11 job và counts | `outputs/ui-workflow/3c2df27735c74e33b9c289d858e560a2/job.json`; run `run-44a2269e348f4553ae3cc40599a11cf0` |
 
 Tài liệu triển khai theo module nằm trong `docs/CCTV_*.md`; tiến độ hiện hành
 trong [CCTV_PROGRESS.md](CCTV_PROGRESS.md). Git history ghi Conventional
@@ -140,9 +169,56 @@ stage và exporter cho package evidence nhỏ, giữ máy thứ hai ở NOT_RUN.
 Nghiệm thu trên máy thứ hai với commit, cấu hình và log riêng; duyệt ROI,
 xác nhận recording groups để chống leakage; tạo nhãn relevance/event độc lập
 và reviewed coverage; hiệu chỉnh ngưỡng trên development rồi đánh giá test.
-Sau đó mới so sánh baseline, phân tích lỗi, bổ sung event/dispatch UI và
-thử camera/nguồn lực thực. Hiện chỉ nghiệm thu demo kỹ thuật, không nghiệm
-thu nhận diện tai nạn hoặc khuyến nghị điều phối hoạt động thực tế.
+Sau đó mới so sánh baseline và phân tích lỗi có nhãn. Event/dispatch UI và
+full-process demo UI đã có; dữ liệu vị trí/nguồn lực thực không phải điều kiện
+cho demo. Hiện nghiệm thu kỹ thuật cục bộ; T10.1 content/groups, T10.2 ROI,
+T10.3 split, T10.5 calibration, T10.6 quality và T10.7 máy thứ hai còn pending.
+T10.4/M8 giữ pending theo người dùng. T10.8 đã chuẩn bị báo cáo và kịch bản
+bảo vệ demo dưới đây; bổ sung kết quả đánh giá/tái lập khi chúng thực sự có.
+
+## 7. Kịch bản bảo vệ demo — khoảng 10 phút
+
+Đây là kịch bản chuẩn bị, chưa ghi nhận một buổi bảo vệ/rehearsal mới.
+Trước buổi trình diễn, kiểm tra môi trường đã setup, weights có sẵn, cổng
+launcher không bị ứng dụng khác chiếm và demo H.264 đủ dài cho tracking.
+Chạy pipeline trước trên UI nếu buổi bảo vệ ngắn; không hứa hoàn tất inference
+trong một thời lượng cố định. Có thể dùng dataset đã xử lý để trình diễn kết quả.
+
+| Thời gian | Thao tác trên một UI | Nội dung trình bày |
+| --- | --- | --- |
+| 0–1 phút | Mở launcher và panel workflow | Bài toán CCTV, kế thừa kiến trúc, phạm vi demo |
+| 1–3 phút | Chọn demo/upload; camera, ảnh ROI, khoảng 10 giây, lưu | Raw chỉ đọc; ROI draft; toàn video cho keyframes, clip cho tracking |
+| 3–4 phút | Chạy hoặc mở dataset đã hoàn tất; progress/log/retry | CLI được tái sử dụng, GPU tuần tự, checkpoint |
+| 4–6 phút | Text query tiếng Anh, mở keyframe/video | CLIP cosine + FAISS/SQLite; seek bằng PTS, score không là xác suất sự kiện |
+| 6–7 phút | Traffic timeline, ROI, bbox/ID overlay | Occupancy/motion/coverage; pixel/s, ID theo segment, ngưỡng chưa calibration |
+| 7–9 phút | Case tổng hợp, review needs_more_evidence, tính proposal | Evidence/revision; pending gate chặn phân bổ; đội/budget/reserve mô phỏng |
+| 9–10 phút | Tải ZIP và trình bày giới hạn | 264 tests, smoke 12/12; chất lượng chưa chấm, M8 pending, máy thứ hai NOT_RUN |
+
+Nếu muốn minh họa assignment, chọn kịch bản **Nhu cầu tổng hợp** trong tab
+phân bổ: fixture có 1 assignment/2 unmet. Không xác nhận một sự cố demo chỉ
+để tạo assignment. Nếu cần thao tác dừng/retry, làm rehearsal riêng trước;
+giữ checkpoint và không xóa output để tạo lỗi giả.
+
+### Câu hỏi dự kiến và trả lời dựa trên bằng chứng
+
+- **Hệ thống đã nhận diện tai nạn chưa?** Chưa có đánh giá nhãn độc lập.
+  Move-then-stop là rule sàng lọc nghi sự cố; xe chờ đèn đỏ có thể false alarm.
+- **Tại sao lấy keyframe 2 FPS nhưng tracking dùng native frames?** Retrieval
+  giảm số ảnh cần index; tracking cần chuỗi liên tiếp và PTS để đo motion.
+- **Tại sao dùng exact FAISS?** Baseline 7.232 ảnh/768D đủ nhỏ; vectors chuẩn
+  hóa cho cosine qua inner product, chưa cần approximate index.
+- **8 GB VRAM có đủ không?** Luồng hiện đã chạy trên RTX 4070 Laptop, FP16,
+  batch CLIP 4, tracking bounded và một model GPU theo stage. Không suy rằng
+  mọi model/dataset hoặc nhiều users đồng thời đều chạy được.
+- **264 tests có nghĩa accuracy cao không?** Chỉ là kiểm thử phần mềm và
+  contracts. Chưa có F1/Recall@K thực; latency cũ không là latency M11.
+- **Đề xuất phân bổ có dùng được cho cảnh sát thật không?** Nguồn lực/vùng/
+  travel giả định; solver minh họa constraints và reserve, không phát lệnh.
+- **Tái lập đã được chứng minh trên máy khác chưa?** Chưa. T10.7 vẫn NOT_RUN;
+  checklist yêu cầu pinned commit, môi trường, raw hashes và log thực.
+
+Các mục bổ sung dưới đây là lịch sử từng task; mô tả “chỉ đọc” của T7 không
+phải giới hạn của workflow M11 hiện tại.
 
 ## Cập nhật sau bàn giao: T7.1
 

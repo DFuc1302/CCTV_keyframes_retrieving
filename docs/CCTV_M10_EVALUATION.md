@@ -91,12 +91,31 @@ folder này để tránh ghi đè quan sát người dùng. Review vẫn pending
 | T10.5 | Baseline và bounded CPU calibration trên development | Chưa có labels/ROI/split đủ điều kiện |
 | T10.6 | Frozen test benchmark, FP/FN/ignored evidence | Chờ T10.3–T10.5 |
 | T10.7 | Rebuild máy Windows NVIDIA khác, commit/env/log/checklist thực | Chờ thông tin máy thứ hai |
-| T10.8 | Report và kịch bản bảo vệ source-backed | Báo cáo kỹ thuật đã có; chất lượng/pilot pending |
+| T10.8 | Report và kịch bản bảo vệ source-backed | Báo cáo cập nhật M11 + kịch bản demo 10 phút/Q&A đã chuẩn bị; quality/second-machine pending |
 
 Một reviewer có thể ghi quan sát/content pilot trước; không export reviewed
 independent annotation. Nếu không đủ positive/negative hoặc groups độc lập,
 bổ sung dữ liệu thay vì dùng fixtures hoặc đổi unknown thành negative.
 M8 đã có prepare/review-notes/adjudication; không thêm workflow mới lúc này.
+
+## Tiếp tục T10.8 — báo cáo và chuẩn bị bảo vệ demo
+
+Theo phạm vi mới, mọi dữ liệu là demo, người dùng làm full process trên UI.
+[CCTV_PROJECT_REPORT.md](CCTV_PROJECT_REPORT.md) đã cập nhật đến M11
+`bcc8e64`, sửa mô tả UI chỉ đọc cũ, bổ sung luồng worker/GPU và phân biệt
+smoke video tổng hợp với đánh giá chất lượng CCTV. Mục 7 có kịch bản khoảng
+10 phút, phương án dataset đã xử lý và Q&A dựa trên bằng chứng hiện có.
+[CCTV_HANDOVER.md](CCTV_HANDOVER.md) bổ sung checklist T10.7 qua UI sau setup,
+tái sử dụng template máy thứ hai, không tạo workflow/code mới.
+
+Đối chiếu local: job M11 complete 12/12, index 24/768D, tracking 250 frames/
+2 segments, 5 windows/ROI pending/ngưỡng chưa calibration, proposal 0/1.
+Core log 264 tests đạt; máy thứ hai template NOT_RUN. Không chạy lại GPU
+hoặc core tests cho thay đổi tài liệu. Đây là chuẩn bị báo cáo/bảo vệ, chưa
+phải buổi bảo vệ thực hoặc phép đánh giá độc lập. T10.1 content/groups,
+T10.2 approval, T10.3 split và T10.5–T10.7 giữ trạng thái pending.
+Kiểm chứng tài liệu: 8 local links tồn tại, 17 PowerShell blocks parse đạt,
+artifact counts/pending flags khớp; log `outputs/tests/t10-report-verification.json`.
 
 ## Protocol calibration/test đã chốt, chưa thực thi
 
@@ -126,8 +145,8 @@ threshold. Không thêm model/UI/dependency trong bước chuẩn bị này.
 
 ```powershell
 git diff --check
-git add scripts/inventory_cctv_evaluation.py test_cctv_evaluation_inventory.py `
-  scripts/Test-Windows.ps1 docs/CCTV_M10_EVALUATION.md docs/CCTV_PROGRESS.md
-git commit -m 'feat: prepare read-only CCTV evaluation inventory and pending review forms'
+git add docs/CCTV_PROJECT_REPORT.md docs/CCTV_HANDOVER.md `
+  docs/CCTV_M10_EVALUATION.md docs/CCTV_PROGRESS.md
+git commit -m 'docs: prepare CCTV demo defense and UI reproduction checklist'
 git push origin main
 ```
