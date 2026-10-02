@@ -1,5 +1,36 @@
 # Đối chiếu kế hoạch và tiến độ CCTV
 
+## Benchmark Colab sáu MOV hoàn tất — 2026-10-02
+
+Đã đo tracking toàn bộ sáu raw MOV trên Tesla T4, cùng source identity,
+YOLOv8m/ByteTrack, batch tối đa 4, FP16 và segment 10 giây như local:
+
+| Mode | Frames / segments | RTX 4070 Laptop | Colab T4 |
+| --- | --- | --- | --- |
+| Sampled 2 FPS | 7.232 / 365 | 2.043,974 giây | 1.474,901 giây |
+| Native mọi frame | 90.352 / 365 | 6.342,012 giây | 5.099,289 giây |
+
+Hai run cloud không có pipeline errors; ledger khớp toàn bộ counts, PTS và
+locator của baseline local. Mỗi mode có 371 artifacts: snapshot lên Drive,
+extract vào thư mục mới và resume skip đủ frames, không load model; SHA256
+artifacts không đổi. Sáu raw giữ SHA256. GPU đã disconnect/delete sau khi
+tải evidence ZIP; không mua compute.
+
+Đây là đo tracking, không phải pipeline 12 stages hoặc kiểm định quality.
+Khác Torch/CUDA, OS/CPU và load; không kết luận chênh lệch do riêng GPU.
+Transfer bị gián đoạn, không có số upload end-to-end hợp lệ; restore sáu
+raw từ Drive và verify SHA256 đo riêng 43,547 giây. Setup GPU 346,670 giây
+gồm restore đó; snapshot/restore/resume không nằm trong tracking wall time.
+Ultralytics in settings trước JSON làm wrapper parse lỗi sau sampled run;
+đã dùng timing/output giữ trong kernel để kiểm tra và tiếp tục, không chạy
+lại sampled inference. SEI truncation warnings giữ nguyên trong logs.
+
+Evidence: `outputs/tests/colab-six-video-benchmark-20261002.json` và
+`outputs/tests/colab-six-video-evidence-20261002.zip`; chi tiết:
+[Benchmark sáu MOV](CCTV_FULLVIDEO_COLAB.md#benchmark-colab-cùng-sáu-mov--2026-10-02).
+T10.1–T10.6/M8 vẫn pending; T10.7 máy thứ hai NOT_RUN, T10.8 thuyết trình
+người dùng chưa có bằng chứng mới. Không sửa forms hoặc tự tạo approval.
+
 ## Colab GPU → Windows UI: demo acceptance — 2026-10-02
 
 Đã chạy job video test-pattern 12 giây trên Tesla T4, Python 3.11.13,
@@ -24,8 +55,8 @@ video và tải ZIP. GPU runtime đã disconnect/delete, không mua compute.
 source checksum LF/CRLF; 11 ingestion và 11 cloud/workflow tests đạt.
 Evidence: `outputs/tests/colab-acceptance-20261002-evidence.json`;
 chi tiết/giới hạn: [Toàn video và Colab](CCTV_FULLVIDEO_COLAB.md).
-Benchmark Colab sáu MOV, quality/M8, review độc lập và máy thứ hai vẫn chưa
-nghiệm thu. Không thay approval hoặc tạo quality metrics.
+Benchmark sáu MOV cloud đã đo ở mục cập nhật phía trên; quality/M8,
+review độc lập và máy thứ hai vẫn chưa nghiệm thu. Không tạo quality metrics.
 
 ## Kiểm tra plan và gates còn mở — 2026-10-02
 
@@ -35,7 +66,7 @@ local native/2 FPS đã hoàn tất trong phạm vi ghi bên dưới.
 
 | Task còn mở | Gate kiểm tra thực tế | Hành động tiếp theo |
 | --- | --- | --- |
-| Benchmark Colab sáu MOV | Demo GPU→UI 12 giây đã đạt; chưa chạy cloud cùng sáu MOV/mode/cache state của phép đo local | Chạy đúng cùng job/cấu hình khi đo benchmark dài; không ngoại suy demo |
+| Benchmark Colab sáu MOV — đã đo | Sampled/native đủ 7.232/90.352 frames, 365 segments mỗi mode; snapshot/restore/resume đã kiểm tra | Xem phép đo và giới hạn ở mục benchmark; không ngoại suy quality |
 | T10.1 content/groups | Sáu entries trong working content form vẫn pending, reviewer/group evidence null | Reviewer ghi bằng chứng nội dung/recording groups vào bản working |
 | T10.2 ROI approval | N001/N002 pending, polygon/reviewer/time null | Người dùng review polygon trên nhiều thời điểm và ghi approval thật |
 | T10.3 split | Sáu groups unverified, splits unassigned | Chỉ chia group-level khi grouping đã verified |
@@ -51,7 +82,7 @@ Notebook: `notebooks/CCTV_Colab.ipynb`; route clone có authentication chưa
 được kiểm chứng. Không mua compute; runtime đã giải phóng sau khi tải result.
 Working forms: `outputs/evaluation/demo-review-working-v1`; không sửa sealed
 templates hoặc tự điền approval. Quality/M8 vẫn pending, máy thứ hai NOT_RUN;
-không báo complete cho benchmark sáu MOV cloud hoặc các task bị review gate.
+benchmark sáu MOV cloud đã đo; các task bị review gate vẫn chưa hoàn tất.
 
 ## Tiếp tục task pending: so sánh native và 2 FPS — 2026-10-02
 
@@ -73,8 +104,8 @@ Resume native 9,05 giây, skip 90.352 frames, model_loaded=false;
 Evidence: `outputs/tests/fullvideo-native-real-20261002-evidence.json`;
 console/resume/decode logs cùng prefix. Chi tiết:
 [Toàn video và Colab](CCTV_FULLVIDEO_COLAB.md#so-sánh-native-mọi-frame-với-2-fps--2026-10-02).
-Local tracking hai mode đã đo toàn dataset; benchmark Colab cùng sáu MOV,
-M8/ROI/labels/groups và máy thứ hai vẫn chưa nghiệm thu. Không có quality metrics,
+Local và Colab tracking hai mode đã đo toàn dataset; M8/ROI/labels/groups
+và máy thứ hai vẫn chưa nghiệm thu. Không có quality metrics,
 không chạy lại pipeline đầy đủ hoặc tự tạo approval.
 
 ## Tiếp tục task pending: đo tracking CCTV toàn video — 2026-10-02
@@ -100,8 +131,8 @@ Evidence: `outputs/tests/fullvideo-real-20261002-evidence.json`;
 console/resume logs cùng prefix. Recipe và giới hạn:
 [Toàn video và Colab](CCTV_FULLVIDEO_COLAB.md#đo-tracking-trên-sáu-video-cctv-thật--2026-10-02).
 Không chạy lại retrieval, congestion, events hoặc dispatch.
-Colab demo đã đạt; so sánh cloud cùng job sáu MOV vẫn NOT_RUN;
-native mọi frame được đo trong lượt tiếp tục ở mục phía trên. M8/ROI/labels/groups vẫn pending,
+Colab demo đã đạt; benchmark cloud sáu MOV đã đo ở mục cập nhật phía trên;
+native local được đo trong lượt tiếp tục. M8/ROI/labels/groups vẫn pending,
 máy thứ hai NOT_RUN; không tự tạo approval hoặc quality metrics.
 
 ## Cập nhật: toàn video, tốc độ và Colab — 2026-10-01
@@ -113,7 +144,7 @@ máy thứ hai NOT_RUN; không tự tạo approval hoặc quality metrics.
 | Batch YOLO và reuse preprocessing đã kiểm chứng | Hoàn thành; FP16, batch tối đa 4, OOM fallback |
 | Export job/import result qua UI | Hoàn thành local; checksum, rebase và activation đã kiểm thử |
 | Notebook Colab/Drive checkpoint | Đã tạo, kiểm tra cú pháp; stage/segment recovery đã test bằng fixture |
-| So sánh GPU local/Colab | Có đo tracking local; Colab GPU/benchmark **NOT_RUN** |
+| So sánh GPU local/Colab | Tracking local/T4 cùng sáu MOV và hai mode đã đo; xem cập nhật 2026-10-02 |
 
 Commits: `7f8fb3f`, `69a103e`, `373151d`, `b6095a3`, `a610758`.
 279 core tests đạt, pip check/compile/CUDA FP16/NMS đạt; 61 tests focused sau

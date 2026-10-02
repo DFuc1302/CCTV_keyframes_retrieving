@@ -130,7 +130,7 @@ Regression có video giả lập 64 giây để kiểm tra full tracking/overlay
 PTS, resume và đổi recipe. Bộ kiểm thử cloud kiểm tra ZIP traversal/tamper,
 case collisions, Linux→Windows, dependency hashes/SQLite, source SHA/mtime,
 khôi phục segment và stage sau runtime loss. Colab demo GPU→UI đã chạy thực;
-benchmark cloud cùng sáu MOV vẫn NOT_RUN. Chi tiết ở mục demo acceptance.
+benchmark cloud cùng sáu MOV đã đo ở mục benchmark phía dưới.
 
 Integration GPU local chạy pipeline qua API của UI trên video test-pattern
 12 giây, kiểm tra 24 sampled frames đến PTS 11,52, search sau kích hoạt và
@@ -187,7 +187,7 @@ Evidence: `outputs/tests/colab-acceptance-20261002-evidence.json`,
 `colab-ui-report-20261002.zip`, `colab-ui-console-20261002.json`.
 11 ingestion tests và 11 cloud/workflow tests đạt sau portability fixes.
 M8/ROI/labels/groups pending, quality metrics null, máy thứ hai NOT_RUN;
-benchmark cloud sáu MOV chưa chạy.
+benchmark cloud sáu MOV đã đo riêng, không thay các review gates.
 
 ## Đo tracking trên sáu video CCTV thật — 2026-10-02
 
@@ -220,7 +220,7 @@ Wall time gồm startup, source hashing, model setup, full-source decoding,
 inference/tracking, SQLite checkpoints và publication. Không đo riêng từng
 thành phần, không bật Drive ZIP checkpoint, không phải pipeline 12 stages.
 Một lần đo, weights đã có local; so sánh native bổ sung ở mục phía dưới,
-benchmark Colab cùng sáu MOV vẫn NOT_RUN (demo 12 giây đã đạt ở trên).
+benchmark Colab cùng sáu MOV đã đo riêng ở mục benchmark phía dưới.
 Observations không phải unique vehicles; memory không gồm toàn bộ CUDA driver.
 
 Kiểm tra toàn ledger: timestamp khớp PTS/time base, locator tăng, sampled gap
@@ -273,8 +273,73 @@ Evidence/environment/recipes/hashes:
 `outputs/tests/fullvideo-native-real-20261002-evidence.json`.
 Logs cùng prefix: `-console.txt`, `-resume.txt`, `-decode.txt`.
 Đây vẫn chỉ là tracking local, không phải 12-stage pipeline hoặc đo cloud.
-Benchmark Colab cùng sáu MOV NOT_RUN, M8/ROI/labels/groups pending, máy thứ hai
-NOT_RUN, quality metrics null.
+Benchmark Colab cùng sáu MOV đã đo riêng phía dưới; M8/ROI/labels/groups
+pending, máy thứ hai NOT_RUN, quality metrics null.
+
+## Benchmark Colab cùng sáu MOV — 2026-10-02
+
+Chạy cả hai lệnh tracking trên sáu MOV nguyên SHA256/size, source archive
+commit `9c9194f1c82bc5736e7081a2e651eaa04a61cba7`, cùng YOLOv8m weights,
+Ultralytics 8.4.168, PyAV 16.1.0, lap 0.5.12, ByteTrack, FP16, batch tối đa
+4 và segment 10 giây. Chỉ đổi sample interval 0,5/0 và output theo mode.
+Cloud: Tesla T4, Python 3.11.13, Torch 2.6.0+cu124, CUDA 12.4, Linux.
+Local: RTX 4070 Laptop, Python 3.11.9, Torch 2.7.1+cu126, CUDA 12.6, Windows.
+
+| Chỉ số | Sampled 2 FPS | Native mọi frame |
+| --- | --- | --- |
+| Frames / segments | 7.232 / 365 | 90.352 / 365 |
+| Local wall time | 2.043,974 giây | 6.342,012 giây |
+| T4 wall time | 1.474,901 giây (24,58 phút) | 5.099,289 giây (84,99 phút) |
+| T4 frames / wall second | 4,90 | 17,72 |
+| Container duration / T4 wall time | 2,45× | 0,71× |
+| Wall giảm so với run local | 27,84% | 19,60% |
+| T4 observations | 72.011 | 1.824.927 |
+| PyTorch peak allocated / reserved | 183,82 / 290,00 MiB | 183,82 / 290,00 MiB |
+| Drive snapshot ZIP | 18,303 giây | 61,317 giây |
+| Drive extract vào thư mục mới | 2,631 giây | 12,372 giây |
+| Resume từ thư mục restored | 9,569 giây | 18,379 giây |
+| Decoder SEI truncation warning lines | 60.175 | 60.197 |
+
+Tracking wall gồm child process startup, source hashing, load model từ
+weights cache, decode/inference/tracking, SQLite segment commits và
+publication, cùng ranh giới CLI local. Không gồm upload, cài môi trường,
+chuẩn bị raw hoặc ZIP snapshot/restore/resume. Không bật per-segment Drive
+ZIP; hai snapshot sau khi từng mode hoàn tất được đo riêng.
+
+GPU setup **346,670 giây** gồm cached YOLO restore/verify **3,652 giây**
+và restore sáu raw từ Drive + SHA256 **43,547 giây**. Driver hash/copy raw
+local thêm **12,277 giây**; validate raw cache Drive **15,297 giây**.
+Các số setup có phần bao nhau, không cộng hai lần. Upload sáu raw không có
+phép đo end-to-end hợp lệ: transfer/relay bị ngắt, runtime T4 đầu mất;
+ba raw đầu khôi phục SHA256 từ Drive, ba raw còn lại gửi 17 phần tối đa
+64 MiB trên CPU, assemble và verify trước khi cấp GPU mới. Không ngoại suy
+tốc độ mạng từ thời gian chọn file hoặc một transfer attempt.
+
+Hai child CLI exit 0, zero pipeline errors. Ledger trên từng video khớp
+baseline local về frame count, PTS/time base, first/last locator và max gap;
+native frame_idx liên tiếp. Mỗi mode có 371 artifacts: snapshot ZIP lên
+Drive, extract vào thư mục mới, verify toàn bộ SHA256 rồi resume. Resume
+skip toàn bộ frames, không load model, không sửa artifacts. Sáu raw vẫn
+nguyên SHA256 sau cả hai run. GPU đã disconnect/delete sau khi tải evidence.
+
+Ultralytics first-run settings text đứng trước JSON làm measurement wrapper
+parse lỗi sau sampled CLI. Child đã hoàn tất; giữ nguyên wall time
+1.474,901 giây và outputs, sửa parser của runner tạm, chạy lại phần
+verification/snapshot/resume rồi chạy native. Không đo lại sampled inference.
+
+Một run mỗi mode; khác OS/CPU, Torch/CUDA và load. Đây không phải hardware-only
+benchmark, không có variance hoặc quality metrics. Native local/cloud có
+1.823.973/1.824.927 observations: không phải unique vehicles hoặc bằng chứng
+accuracy bằng nhau. Giữ decoder warnings, chưa nghiệm thu image quality.
+Không chạy lại retrieval/congestion/events/dispatch; M8/ROI/labels/groups
+pending, máy thứ hai NOT_RUN, thuyết trình người dùng chưa có bằng chứng mới.
+
+Evidence: `outputs/tests/colab-six-video-benchmark-20261002.json`;
+`outputs/tests/colab-six-video-evidence-20261002.zip` (631.057 bytes,
+SHA256 `4878fc16a01d2d2e4b7488b4de6fe0a4a3e70857e5b7246255b00bbc31fbb7ef`).
+ZIP gồm report/coverage/artifact hashes, stdout/stderr/resume logs, manifests,
+track states, setup log và exact runners/inputs. Full mode snapshots nằm
+trong Drive `MyDrive/CCTV_Colab/real-benchmark-20261002/{sampled,native}.zip`.
 
 ## Git
 
