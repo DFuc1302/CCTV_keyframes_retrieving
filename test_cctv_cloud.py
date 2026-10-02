@@ -120,6 +120,11 @@ class CloudTests(unittest.TestCase):
     def test_result_rebases_paths_sqlite_and_dependency_hashes(self):
         repo = self.root / "repo"
         repo.mkdir()
+        local_code = repo / "app/main.py"
+        local_code.parent.mkdir()
+        local_code.write_bytes(b"value = 1\r\nprint(value)\r\n")
+        remote_code = self.root / "linux-main.py"
+        remote_code.write_bytes(b"value = 1\nprint(value)\n")
         raw = self.root / "raw"
         raw.mkdir()
         source = raw / "VID.mp4"
@@ -151,7 +156,10 @@ class CloudTests(unittest.TestCase):
                 "INSERT INTO metadata VALUES (?)",
                 (
                     json.dumps(
-                        dict(manifest_sha256=digest(run / "configs/manifest.json"))
+                        dict(
+                            manifest_sha256=digest(run / "configs/manifest.json"),
+                            code_sha256=digest(remote_code),
+                        )
                     ),
                 ),
             )
@@ -164,6 +172,7 @@ class CloudTests(unittest.TestCase):
             dict(
                 db=digest(database),
                 index=digest(run / "search-index/index_manifest.json"),
+                code=digest(remote_code),
             ),
         )
         data = dict(
@@ -199,6 +208,7 @@ class CloudTests(unittest.TestCase):
         self.assertEqual(
             state["index"], digest(destination / "search-index/index_manifest.json")
         )
+        self.assertEqual(state["code"], digest(local_code))
         with closing(sqlite3.connect(destination / "tracks.db")) as conn:
             self.assertEqual(
                 conn.execute("SELECT source_video FROM cctv_frames").fetchone()[0],
@@ -210,6 +220,11 @@ class CloudTests(unittest.TestCase):
         self.assertEqual(
             signature["manifest_sha256"], digest(destination / "configs/manifest.json")
         )
+        self.assertEqual(signature["code_sha256"], digest(local_code))
+        self.assertEqual(local_code.read_bytes(), b"value = 1\r\nprint(value)\r\n")
+        local_code.write_bytes(b"value = 2\r\nprint(value)\r\n")
+        with self.assertRaisesRegex(ValueError, "executable version differs"):
+            import_result(repo, archive, data, self.root / "rejected")
         self.assertEqual((digest(source), source.stat().st_mtime_ns), original)
         self.assertFalse(
             json.loads((destination / "cloud-provenance.json").read_text())[

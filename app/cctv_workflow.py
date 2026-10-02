@@ -398,7 +398,7 @@ class Workflow:
             )
         from pipeline.cctv.cloud import rebase
 
-        rebase(run, {str(source): str(run)})
+        rebase(run, {str(source): str(run)}, {})
         save_json(
             marker,
             dict(

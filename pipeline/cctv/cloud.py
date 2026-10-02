@@ -299,10 +299,10 @@ def tracking_checkpoint(
         staged.replace(archive)
 
 
-def rebase(run: Path, paths: dict) -> None:
+def rebase(run: Path, paths: dict, source_hashes: dict[str, str]) -> None:
     """Rebind a new imported copy and reseal dependency hashes, preserving originals."""
     original = {p: digest(p) for p in run.rglob("*") if p.is_file()}
-    hashes = {}
+    hashes = dict(source_hashes)
     ordered = sorted(paths.items(), key=lambda item: len(item[0]), reverse=True)
 
     def transform(value):
@@ -445,7 +445,13 @@ def import_result(root: Path, archive: Path, data: dict, destination: Path) -> d
             parents.pop()
         )
         shutil.copytree(incoming / "run", destination)
-    rebase(destination, paths)
+    # Identity validation above proves these LF digests describe the local source.
+    # Bind imported source dependencies to checkout bytes before resealing artifacts.
+    rebase(
+        destination,
+        paths,
+        {checksum: digest(root / name) for name, checksum in meta["code"].items()},
+    )
     from pipeline.cctv.manifest import load_manifest
 
     manifest = load_manifest(destination / "configs/manifest.json")
