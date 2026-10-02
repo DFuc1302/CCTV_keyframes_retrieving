@@ -46,6 +46,22 @@ Không sửa hoặc nhập result của code/ROI/video khác; hãy xuất job m�
 Job ZIP có bản sao video demo, không có weights, tài khoản hay credentials.
 Result không chứa raw video; nguồn local phải còn nguyên.
 
+### Code identity Windows → Linux — 2026-10-02
+
+Kiểm tra runtime thực phát hiện checkout Windows CRLF và Git/Linux LF tạo
+code hashes khác nhau dù cùng executable source. `code_identity` hiện chỉ
+chuẩn hóa CRLF→LF trước SHA256; thay đổi executable vẫn bị từ chối.
+Checksums ZIP/raw/model không chuẩn hóa và vẫn kiểm tra bytes nguyên gốc.
+Xuất job mới sau thay đổi này; không sửa metadata/checksum của package cũ.
+
+10 cloud/workflow tests đạt; smoke export/unpack trên video integration thật
+xác nhận 55 source identities khớp bản LF và reject source executable đổi.
+Evidence: `outputs/tests/colab-portability-tests-20261002.txt`,
+`outputs/tests/colab-portability-smoke-20261002.json`.
+Đã kết nối Colab T4 runtime 2025.07/Python 3.11.13, mount Drive và kiểm tra
+job. GitHub clone chưa có authentication trả lỗi; cloud pipeline/result
+chưa nghiệm thu chỉ từ các bước chuẩn bị này.
+
 ## Resume và chi phí
 
 Colab chạy batch qua notebook; UI phục vụ trên Windows. Model cache nằm trên
@@ -94,6 +110,93 @@ chạy Colab. Log/evidence: `outputs/tests/fullvideo-workflow-log-final.txt`,
 `cloud-runtime.json`, `stage-timings.jsonl`, đo upload/download/model setup
 riêng. So sánh cùng video/scope/mode/cache state, báo cáo phần checkpoint I/O.
 Chưa có số GPU cloud, chất lượng M8 hoặc máy thứ hai mới.
+
+## Đo tracking trên sáu video CCTV thật — 2026-10-02
+
+Chạy scope full video, 2 FPS trên sáu MOV của manifest hiện có, không sửa raw,
+ROI hoặc outputs cũ. RTX 4070 Laptop, YOLOv8m FP16, batch tối đa 4,
+ByteTrack reset theo segment 10 giây. Lệnh đã chạy từ repo:
+
+```powershell
+.\.venv\Scripts\python.exe -u -m pipeline.cctv.track `
+  --manifest configs\cctv.demo.json `
+  --traffic-config configs\cctv.traffic.demo.json `
+  --model-config outputs\model-cache\yolo\yolo.json `
+  --tracker-config configs\cctv.bytetrack.yaml `
+  --output-dir outputs\demo-data\fullvideo-real-20261002 `
+  --full-video --sample-interval-sec 0.5 --segment-seconds 10 --device cuda
+```
+
+| Chỉ số | Kết quả |
+| --- | --- |
+| Container duration tổng | 3.614,160 giây (60,24 phút) |
+| Wall time tracking process | 2.043,97 giây (34,07 phút) |
+| Sampled frames / segments | 7.232 / 365 |
+| Observations / lỗi pipeline | 72.011 / 0 |
+| Sampled frames / wall second | 3,54 |
+| Container duration / wall time | 1,77× |
+| PyTorch peak allocated / reserved | 183,82 / 284,00 MiB |
+| Resume wall time | 5,49 giây |
+
+Wall time gồm startup, source hashing, model setup, full-source decoding,
+inference/tracking, SQLite checkpoints và publication. Không đo riêng từng
+thành phần, không bật Drive ZIP checkpoint, không phải pipeline 12 stages.
+Một lần đo, weights đã có local; so sánh native bổ sung ở mục phía dưới,
+GPU Colab vẫn NOT_RUN.
+Observations không phải unique vehicles; memory không gồm toàn bộ CUDA driver.
+
+Kiểm tra toàn ledger: timestamp khớp PTS/time base, locator tăng, sampled gap
+tối đa 0,522 giây; sample cuối mỗi video cách container end không quá 0,75
+giây. Sáu raw SHA256 khớp inventory và giữ mtime. Resume skip đủ 7.232 frames,
+không load model, 371 artifacts giữ SHA256/mtime. Decoder phát 60.175 dòng
+SEI truncation warnings; giữ log để điều tra, không coi exit code là bằng
+chứng chất lượng hình ảnh hoặc tracking.
+
+Evidence/environment/recipe/hashes:
+`outputs/tests/fullvideo-real-20261002-evidence.json`.
+Logs: `outputs/tests/fullvideo-real-20261002-console.txt` và
+`outputs/tests/fullvideo-real-20261002-resume.txt`.
+Không có quality metrics, approval ROI/M8, GPU Colab hoặc máy thứ hai mới.
+
+## So sánh native mọi frame với 2 FPS — 2026-10-02
+
+Đã chạy lại lệnh tracking phía trên với hai thay đổi:
+`--sample-interval-sec 0` và output riêng
+`--output-dir outputs\demo-data\fullvideo-native-real-20261002`.
+Manifest/raw/config/model/code/environment giống run sampled; recipe chỉ
+khác sample interval. Không thay outputs sampled hoặc dữ liệu review.
+
+| Chỉ số | Native mọi frame | Sampled 2 FPS |
+| --- | --- | --- |
+| Container duration | 3.614,160 giây | 3.614,160 giây |
+| Frames / segments | 90.352 / 365 | 7.232 / 365 |
+| Wall time | 6.342,01 giây (105,70 phút) | 2.043,97 giây (34,07 phút) |
+| Frames / wall second | 14,25 | 3,54 |
+| Container duration / wall time | 0,57× | 1,77× |
+| Observations | 1.823.973 | 72.011 |
+| PyTorch peak allocated / reserved | 183,82 / 284,00 MiB | 183,82 / 284,00 MiB |
+| Resume wall time | 9,05 giây | 5,49 giây |
+
+Trong hai lần chạy tuần tự này, native mất 3,10× wall time; sampled giảm
+67,77%. Không phải benchmark lặp có kiểm soát: desktop GPU users/load khác
+nhau, chưa đo variance hoặc accuracy. Observation count khác nhau không
+chứng minh số xe hoặc chất lượng tốt hơn; native và sampled không tương
+đương về temporal coverage/association.
+
+Native ledger có frame_idx liên tiếp từ 0 trên từng video, timestamp khớp
+rational PTS, gap tối đa 0,042 giây. Decode độc lập sáu raw bằng PyAV khớp
+90.352 frames và PTS cuối từng video, không chỉ dựa vào pipeline exit code.
+Resume skip đủ frames, không load model; 371 native artifacts và 371
+sampled artifacts giữ SHA256/mtime; sáu raw không đổi.
+Decoder phát 60.197 dòng SEI truncation warnings trong native run; giữ log,
+chưa có image-quality acceptance.
+
+Evidence/environment/recipes/hashes:
+`outputs/tests/fullvideo-native-real-20261002-evidence.json`.
+Logs cùng prefix: `-console.txt`, `-resume.txt`, `-decode.txt`.
+Đây vẫn chỉ là tracking local, không phải 12-stage pipeline hoặc đo cloud.
+Colab GPU/benchmark NOT_RUN, M8/ROI/labels/groups pending, máy thứ hai
+NOT_RUN, quality metrics null.
 
 ## Git
 

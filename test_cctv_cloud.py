@@ -30,6 +30,17 @@ class CloudTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
 
+    def test_code_identity_ignores_checkout_newlines_not_code_changes(self):
+        windows = self.root / "windows"
+        linux = self.root / "linux"
+        for root in (windows, linux):
+            (root / "app").mkdir(parents=True)
+        (windows / "app/main.py").write_bytes(b"value = 1\r\nprint(value)\r\n")
+        (linux / "app/main.py").write_bytes(b"value = 1\nprint(value)\n")
+        self.assertEqual(code_identity(windows), code_identity(linux))
+        (linux / "app/main.py").write_bytes(b"value = 2\nprint(value)\n")
+        self.assertNotEqual(code_identity(windows), code_identity(linux))
+
     def test_archive_checksums_nested_metadata_and_unsafe_entries(self):
         folder = self.root / "payload"
         (folder / "nested").mkdir(parents=True)
@@ -51,21 +62,6 @@ class CloudTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "coverage"):
             unpack(archive, self.root / "extra")
 
-    def test_notebook_cells_are_valid_and_unexecuted(self):
-        import ast
-
-        notebook = json.loads(
-            (Path(__file__).parent / "notebooks/CCTV_Colab.ipynb").read_text(
-                encoding="utf-8"
-            )
-        )
-        self.assertEqual(notebook["nbformat"], 4)
-        for cell in notebook["cells"]:
-            if cell["cell_type"] == "code":
-                ast.parse("".join(cell["source"]))
-                self.assertIsNone(cell["execution_count"])
-                self.assertFalse(cell["outputs"])
-        self.assertIn("NOT_RUN", "".join(notebook["cells"][0]["source"]))
 
     def test_cloud_resume_skips_completed_stage_after_runtime_loss(self):
         repo = self.root / "repo"

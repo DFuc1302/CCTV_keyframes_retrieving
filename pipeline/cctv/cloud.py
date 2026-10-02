@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
 import sqlite3
@@ -70,9 +71,11 @@ def pack(folder: Path, archive: Path, meta: dict) -> None:
 
 
 def code_identity(root: Path) -> dict:
-    """Pin executable sources; documentation-only commits do not invalidate results."""
+    """Pin executable sources independent of Git's CRLF/LF checkout conversion."""
     return {
-        p.relative_to(root).as_posix(): digest(p)
+        p.relative_to(root).as_posix(): hashlib.sha256(
+            p.read_bytes().replace(b"\r\n", b"\n")
+        ).hexdigest()
         for parent in ("app", "pipeline/cctv", "scripts")
         for p in (root / parent).rglob("*.py")
     }
