@@ -66,8 +66,8 @@ xác nhận 55 source identities khớp bản LF và reject source executable đ
 Evidence: `outputs/tests/colab-portability-tests-20261002.txt`,
 `outputs/tests/colab-portability-smoke-20261002.json`.
 Đã kết nối Colab T4 runtime 2025.07/Python 3.11.13, mount Drive và kiểm tra
-job. GitHub clone chưa có authentication trả lỗi; cloud pipeline/result
-chưa nghiệm thu chỉ từ các bước chuẩn bị này.
+job. GitHub clone chưa có authentication trả 404; demo GPU→UI dùng source
+archive từ exact commit, kiểm tra SHA256 và code identity trước execution.
 
 Colab native smoke cũng phát hiện `output_lease` chỉ hỗ trợ Windows.
 Lease hiện dùng Windows byte-range lock hoặc POSIX `flock`, đều nonblocking
@@ -129,8 +129,8 @@ Logs: `outputs/tests/fullvideo-baseline*`, `fullvideo-fast-v2*`.
 Regression có video giả lập 64 giây để kiểm tra full tracking/overlay >60 giây,
 PTS, resume và đổi recipe. Bộ kiểm thử cloud kiểm tra ZIP traversal/tamper,
 case collisions, Linux→Windows, dependency hashes/SQLite, source SHA/mtime,
-khôi phục segment và stage sau runtime loss. Notebook chỉ đã kiểm tra cấu trúc
-và cú pháp local; **Colab GPU execution/benchmark: NOT_RUN**.
+khôi phục segment và stage sau runtime loss. Colab demo GPU→UI đã chạy thực;
+benchmark cloud cùng sáu MOV vẫn NOT_RUN. Chi tiết ở mục demo acceptance.
 
 Integration GPU local chạy pipeline qua API của UI trên video test-pattern
 12 giây, kiểm tra 24 sampled frames đến PTS 11,52, search sau kích hoạt và
@@ -138,10 +138,56 @@ vòng export/import artifact thật. Đây là kiểm thử transport local, kh�
 chạy Colab. Log/evidence: `outputs/tests/fullvideo-workflow-log-final.txt`,
 `outputs/tests/fullvideo-workflow-evidence.json`.
 
-Để hoàn thành so sánh Colab: chạy cùng job; giữ `cloud-environment.json`,
-`cloud-runtime.json`, `stage-timings.jsonl`, đo upload/download/model setup
-riêng. So sánh cùng video/scope/mode/cache state, báo cáo phần checkpoint I/O.
-Chưa có số GPU cloud, chất lượng M8 hoặc máy thứ hai mới.
+So sánh demo cùng video/scope/mode được ghi bên dưới; package/cache state
+khác nhau, upload/download và initial model download chưa đo riêng.
+Job overhead gồm unpack/startup/checkpoint, không phải isolated Drive I/O.
+Quality M8 và máy thứ hai vẫn chưa nghiệm thu.
+
+## Colab GPU → Windows UI: demo acceptance — 2026-10-02
+
+Video test-pattern 12 giây, full-video/2 FPS, segment 5 giây, FP16/batch tối
+đa 4; không phải traffic footage có nhãn. Tesla T4/runtime 2025.07,
+Python 3.11.13, Torch 2.6.0+cu124; local baseline RTX 4070/Torch 2.7.1+cu126.
+Commit executable `7523979`; raw SHA256 khớp local, 24 sampled frames
+0–11,52 giây và decoded ordinals 0–288; 6 windows, 0 observations.
+
+| Chỉ số | Local RTX 4070 | Colab T4 |
+| --- | --- | --- |
+| Tổng 12 stage timings | 33,687 s | 39,988 s |
+| CLIP index, gồm stage startup | 16,109 s | 23,851 s |
+| Tracking, gồm stage startup | 8,378 s | 8,343 s |
+
+Colab job **43,542 s** gồm unpack, stages, checkpoint writes; batch gồm
+result ZIP **45,204 s**. Ngoài stage là **3,554 s**, không tách riêng Drive I/O.
+Lượt model setup thành công **20,460 s** dùng CLIP đã cache; không bao gồm
+initial download/lượt setup thất bại. Upload/download chưa đo riêng.
+Khác package/cache state, một lần đo; không kết luận T4 nhanh/chậm hơn cho
+footage dài hoặc suy chất lượng từ thời gian.
+
+Drive stage checkpoint có completed=12 và tracking checkpoint 36.724 bytes.
+Rename run local để mô phỏng mất disk rồi chạy child process mới: restore
+12 stages, không inference lại; wall restore/repack **4,054 s**, job **2,208 s**.
+Result đầu giữ riêng; recovery không thay số runtime của phép đo đầu.
+
+Nhập ZIP qua file chooser của UI Windows: activate run mới
+`run-cloud-ecf034636631471e98fd186b24aa0728`; search 12 kết quả, source
+readyState=4/seek 8/12 giây, overlay readyState=4/seek 10/12,02 giây.
+Traffic hiển thị 6 windows và ROI pending; events không có ứng viên,
+simulation là fixture riêng (1 assignment/2 unmet), không dispatch thật.
+Report ZIP tải qua browser chứa 12 timings, cloud environment/runtime/
+provenance và demo/M8 gates. 172 original files giữ SHA256/mtime;
+chỉ dataset/job metadata đổi để activate. Không sửa approval.
+Console không có lỗi; lưu hai network ERR_ABORTED khi đóng video/tải ZIP,
+đồng thời playback và bytes ZIP đã được xác nhận.
+Runtime đã disconnect/delete sau khi tải result; Drive checkpoints giữ lại.
+
+Evidence: `outputs/tests/colab-acceptance-20261002-evidence.json`,
+`colab-accepted-run-20261002.txt`, `colab-final-drive-recovery-20261002.txt`,
+`colab-source-playback-20261002.json`, `colab-overlay-playback-20261002.json`,
+`colab-ui-report-20261002.zip`, `colab-ui-console-20261002.json`.
+11 ingestion tests và 11 cloud/workflow tests đạt sau portability fixes.
+M8/ROI/labels/groups pending, quality metrics null, máy thứ hai NOT_RUN;
+benchmark cloud sáu MOV chưa chạy.
 
 ## Đo tracking trên sáu video CCTV thật — 2026-10-02
 
@@ -174,7 +220,7 @@ Wall time gồm startup, source hashing, model setup, full-source decoding,
 inference/tracking, SQLite checkpoints và publication. Không đo riêng từng
 thành phần, không bật Drive ZIP checkpoint, không phải pipeline 12 stages.
 Một lần đo, weights đã có local; so sánh native bổ sung ở mục phía dưới,
-GPU Colab vẫn NOT_RUN.
+benchmark Colab cùng sáu MOV vẫn NOT_RUN (demo 12 giây đã đạt ở trên).
 Observations không phải unique vehicles; memory không gồm toàn bộ CUDA driver.
 
 Kiểm tra toàn ledger: timestamp khớp PTS/time base, locator tăng, sampled gap
@@ -227,7 +273,7 @@ Evidence/environment/recipes/hashes:
 `outputs/tests/fullvideo-native-real-20261002-evidence.json`.
 Logs cùng prefix: `-console.txt`, `-resume.txt`, `-decode.txt`.
 Đây vẫn chỉ là tracking local, không phải 12-stage pipeline hoặc đo cloud.
-Colab GPU/benchmark NOT_RUN, M8/ROI/labels/groups pending, máy thứ hai
+Benchmark Colab cùng sáu MOV NOT_RUN, M8/ROI/labels/groups pending, máy thứ hai
 NOT_RUN, quality metrics null.
 
 ## Git

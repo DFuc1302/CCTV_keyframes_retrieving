@@ -1,5 +1,109 @@
 # Đối chiếu kế hoạch và tiến độ CCTV
 
+## Colab GPU → Windows UI: demo acceptance — 2026-10-02
+
+Đã chạy job video test-pattern 12 giây trên Tesla T4, Python 3.11.13,
+Torch 2.6.0+cu124: **12/12 stages**, 24 frames 2 FPS đến PTS 11,52,
+6 traffic windows. Commit executable cuối: `7523979`.
+Batch gồm result ZIP **45,204 giây**; job gồm stages/checkpoint **43,542 giây**.
+Tổng stage local RTX 4070/T4: **33,687/39,988 giây**; index CLIP
+**16,109/23,851**, tracking **8,378/8,343 giây**. Khác package/cache state;
+không suy tốc độ sáu MOV hoặc chất lượng từ một demo ngắn.
+
+Mất thư mục run local Colab rồi khôi phục Drive: skip cả 12 stages,
+không chạy inference; restore/repack **4,054 giây**. UI Windows nhập ZIP
+thật và activate run mới; search 12 kết quả, source seek 8 giây,
+overlay seek 10 giây, 6 windows/ROI pending, events và simulation đã đọc.
+Report ZIP tải qua browser có 12 stage timings, cloud environment/runtime/
+provenance và `demo_only=true`, `operational_ready=false`, M8 PENDING.
+172 original files, gồm raw, giữ SHA256/mtime; chỉ dataset/job metadata đổi
+để activate. Console không có lỗi; giữ hai network ERR_ABORTED khi đóng
+video và tải ZIP. GPU runtime đã disconnect/delete, không mua compute.
+
+Đã sửa POSIX lease, notebook venv/CUDA shadowing, FFmpeg 4 passthrough và
+source checksum LF/CRLF; 11 ingestion và 11 cloud/workflow tests đạt.
+Evidence: `outputs/tests/colab-acceptance-20261002-evidence.json`;
+chi tiết/giới hạn: [Toàn video và Colab](CCTV_FULLVIDEO_COLAB.md).
+Benchmark Colab sáu MOV, quality/M8, review độc lập và máy thứ hai vẫn chưa
+nghiệm thu. Không thay approval hoặc tạo quality metrics.
+
+## Kiểm tra plan và gates còn mở — 2026-10-02
+
+Đối chiếu plan full-video/Colab và M10, không bổ sung benchmark local để
+thay thế task cần đầu vào bên ngoài. Implementation/UI và phép đo tracking
+local native/2 FPS đã hoàn tất trong phạm vi ghi bên dưới.
+
+| Task còn mở | Gate kiểm tra thực tế | Hành động tiếp theo |
+| --- | --- | --- |
+| Benchmark Colab sáu MOV | Demo GPU→UI 12 giây đã đạt; chưa chạy cloud cùng sáu MOV/mode/cache state của phép đo local | Chạy đúng cùng job/cấu hình khi đo benchmark dài; không ngoại suy demo |
+| T10.1 content/groups | Sáu entries trong working content form vẫn pending, reviewer/group evidence null | Reviewer ghi bằng chứng nội dung/recording groups vào bản working |
+| T10.2 ROI approval | N001/N002 pending, polygon/reviewer/time null | Người dùng review polygon trên nhiều thời điểm và ghi approval thật |
+| T10.3 split | Sáu groups unverified, splits unassigned | Chỉ chia group-level khi grouping đã verified |
+| T10.4/M8 | Giữ pending theo yêu cầu; chỉ một reviewer được xác nhận | Chờ hai notes blind độc lập, không tạo reviewer giả |
+| T10.5–T10.6 calibration/quality | Chưa đủ labels/ROI/split gates | Không calibration hoặc chấm test bằng fixtures/demo pending |
+| T10.7 máy thứ hai | Không có SSH hosts configured; chưa có quyền truy cập máy thứ hai được cung cấp | Cần máy Windows NVIDIA được truy cập hoặc checklist/log thực do người dùng chạy |
+| T10.8 thuyết trình | Report và rehearsal kỹ thuật đã có, không có bằng chứng buổi thuyết trình mới | Người dùng diễn tập/thuyết trình theo kịch bản hiện có |
+
+Colab T4/runtime 2025.07, quota và Drive mount đã xác nhận; demo job đã chạy
+và import qua UI Windows. GitHub clone thiếu authentication trả 404; smoke
+dùng source ZIP từ exact commit, SHA256 và 55 source identities đã đối chiếu.
+Notebook: `notebooks/CCTV_Colab.ipynb`; route clone có authentication chưa
+được kiểm chứng. Không mua compute; runtime đã giải phóng sau khi tải result.
+Working forms: `outputs/evaluation/demo-review-working-v1`; không sửa sealed
+templates hoặc tự điền approval. Quality/M8 vẫn pending, máy thứ hai NOT_RUN;
+không báo complete cho benchmark sáu MOV cloud hoặc các task bị review gate.
+
+## Tiếp tục task pending: so sánh native và 2 FPS — 2026-10-02
+
+Đã chạy native **mọi decoded frame của sáu MOV**, cùng config/model/code,
+CUDA FP16, batch tối đa 4 và segment 10 giây như lần đo 2 FPS.
+Output riêng: `outputs/demo-data/fullvideo-native-real-20261002`.
+90.352 frames, 365 segments, 1.823.973 observations, 0 lỗi pipeline;
+wall **6.342,01 giây (105,70 phút)** so với sampled 2.043,97 giây.
+Trong hai lần đo này, native mất 3,10× wall time; sampled giảm 67,77%.
+Không phải benchmark lặp có kiểm soát: desktop GPU load khác nhau,
+không có nhãn để so sánh chất lượng hai mode.
+
+Decode độc lập sáu raw bằng PyAV khớp frame counts và PTS cuối; ledger
+frame_idx liên tiếp từ 0, timestamp khớp rational PTS, gap tối đa 0,042 giây.
+Sáu raw giữ SHA256/mtime, 371 artifacts sampled giữ nguyên.
+Resume native 9,05 giây, skip 90.352 frames, model_loaded=false;
+371 native artifacts giữ SHA256/mtime. Peak PyTorch allocated/reserved
+183,82/284,00 MiB. Decoder có 60.197 dòng SEI truncation warnings, giữ log.
+Evidence: `outputs/tests/fullvideo-native-real-20261002-evidence.json`;
+console/resume/decode logs cùng prefix. Chi tiết:
+[Toàn video và Colab](CCTV_FULLVIDEO_COLAB.md#so-sánh-native-mọi-frame-với-2-fps--2026-10-02).
+Local tracking hai mode đã đo toàn dataset; benchmark Colab cùng sáu MOV,
+M8/ROI/labels/groups và máy thứ hai vẫn chưa nghiệm thu. Không có quality metrics,
+không chạy lại pipeline đầy đủ hoặc tự tạo approval.
+
+## Tiếp tục task pending: đo tracking CCTV toàn video — 2026-10-02
+
+Đã chạy tracking **toàn bộ sáu MOV thật**, 2 FPS, YOLOv8m CUDA FP16,
+batch tối đa 4, segment 10 giây, output riêng
+`outputs/demo-data/fullvideo-real-20261002`. Tổng container duration
+3.614,160 giây; 7.232 sampled frames, 365 segments, 72.011 observations,
+0 lỗi pipeline. Wall time **2.043,97 giây (34,07 phút)**, gồm startup/hash,
+model setup, decode, inference/tracking, SQLite và publication; không có
+Drive/ZIP checkpoint. Tỷ lệ duration/wall 1,77× chỉ là một lần đo tracking,
+không phải tốc độ pipeline đầy đủ hoặc số xe thực tế.
+
+Đối chiếu PTS/time base, locator tăng và khoảng sampled tối đa 0,522 giây;
+sample cuối mỗi video cách container end không quá 0,75 giây.
+Sáu raw giữ SHA256/mtime và khớp inventory. Resume 5,49 giây, skip 7.232
+frames, model_loaded=false, 371 artifacts giữ SHA256/mtime.
+PyTorch peak allocated/reserved 183,82/284,00 MiB, không phải tổng VRAM.
+Decoder có 60.175 dòng cảnh báo SEI truncation; log giữ nguyên, không suy
+ra chất lượng decode hoặc tracking đạt chỉ từ exit code.
+
+Evidence: `outputs/tests/fullvideo-real-20261002-evidence.json`;
+console/resume logs cùng prefix. Recipe và giới hạn:
+[Toàn video và Colab](CCTV_FULLVIDEO_COLAB.md#đo-tracking-trên-sáu-video-cctv-thật--2026-10-02).
+Không chạy lại retrieval, congestion, events hoặc dispatch.
+Colab demo đã đạt; so sánh cloud cùng job sáu MOV vẫn NOT_RUN;
+native mọi frame được đo trong lượt tiếp tục ở mục phía trên. M8/ROI/labels/groups vẫn pending,
+máy thứ hai NOT_RUN; không tự tạo approval hoặc quality metrics.
+
 ## Cập nhật: toàn video, tốc độ và Colab — 2026-10-01
 
 | Task trong plan mới | Trạng thái |
@@ -19,7 +123,8 @@ Integration GPU qua API UI: video test-pattern 12 giây, 24 sampled frames
 Raw SHA/mtime giữ nguyên. Browser kiểm tra scope full/range và controls mới,
 không có lỗi console; server kiểm thử 8088 đã dừng.
 
-Chưa chạy GPU Colab, chưa đo CCTV dài thật, chưa có benchmark chất lượng mới.
+Ở lần cập nhật này chưa chạy GPU Colab hoặc CCTV dài thật; phép đo tracking
+trên sáu MOV thật bổ sung ngày 2026-10-02 ở mục phía trên. Chưa có benchmark chất lượng mới.
 Bạn cần đăng nhập/cấp quyền Drive, xác minh quota và chạy notebook. M8 giữ
 PENDING, máy thứ hai NOT_RUN. Chi tiết thao tác, thiết kế, giới hạn và evidence:
 [Toàn video và Colab](CCTV_FULLVIDEO_COLAB.md).
@@ -33,7 +138,7 @@ Smoke thực video mới đạt 12/12 stage; M8 và các gate chất lượng M1
 | Task UI | Trạng thái | Kiểm chứng |
 | --- | --- | --- |
 | T11.1 Dataset demo/upload và camera | Complete | Upload video thật qua HTTP; giới hạn filename/size/origin có test |
-| T11.2 ROI và tracking interval | Complete | UI lưu polygon pending, mặc định 10 giây, max 60 giây |
+| T11.2 ROI và tracking scope | Complete | UI lưu polygon pending; mặc định toàn video/2 FPS, khoảng 1–60 giây hoặc mọi frame |
 | T11.3 Job, GPU tuần tự và resume | Complete | Smoke 12/12 stage; failure/retry và shutdown có test |
 | T11.4 Mở kết quả vào các tab | Complete | Text query 12 kết quả; video seek giây 8; 5 traffic windows |
 | T11.5 Review, proposal và export | Complete | Journal revision 1, pending gate 0/1, tải ZIP qua browser |
