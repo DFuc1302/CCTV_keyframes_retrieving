@@ -40,8 +40,9 @@ def extract_mapped(video: Path, stage: Path, ffmpeg: str, device: str) -> int:
     # Map timestamps are logged BEFORE assigning monotonic JPEG encoder timestamps.
     # FFmpeg 6.x may still rebuild the graph for changing display-matrix metadata
     # even with reinit_filter=0. Preserve encoded pixel orientation explicitly.
+    # -vsync 0 preserves selected frames on both FFmpeg 4.x (Colab) and newer releases.
     command += ["-noautorotate", "-reinit_filter", "0", "-threads", "2", "-i", str(video), "-map", "0:v:0", "-an", "-sn", "-dn",
-                "-vf", filters, "-filter_threads", "1", "-fps_mode", "passthrough",
+                "-vf", filters, "-filter_threads", "1", "-vsync", "0",
                 "-threads", "2", "-q:v", "2", "-start_number", "1", str(stage / "%03d.jpg")]
     tail: deque[str] = deque(maxlen=20)
     selected = 0

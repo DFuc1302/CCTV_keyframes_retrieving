@@ -78,6 +78,14 @@ Không gỡ packages global hoặc thay Torch/torchvision được Colab cung c�
 Runtime thực Python 3.11.13/Torch 2.6.0+cu124/Tesla T4 đạt sáu checks,
 bao gồm CUDA FP16/NMS: `outputs/tests/colab-cuda-smoke-20261002.txt`.
 
+FFmpeg 4.4.2 trong runtime này không hỗ trợ `-fps_mode`. Extractor dùng
+`-vsync 0` tương đương passthrough để giữ một JPEG cho mỗi frame được chọn,
+không duplicate/drop sau select. Smoke thực trên Colab xác nhận 24 frames
+của video 12 giây/25 FPS, PTS 0–11,52 và decoded ordinals 0–288 đúng bin
+0,5 giây; 11 ingestion tests trên Windows vẫn đạt.
+Evidence: `outputs/tests/colab-ffmpeg-compatibility-linux-20261002.txt`,
+`outputs/tests/colab-ffmpeg-compatibility-windows-20261002.txt`.
+
 
 ## Resume và chi phí
 
