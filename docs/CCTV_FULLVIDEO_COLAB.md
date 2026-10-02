@@ -62,6 +62,23 @@ Evidence: `outputs/tests/colab-portability-tests-20261002.txt`,
 job. GitHub clone chưa có authentication trả lỗi; cloud pipeline/result
 chưa nghiệm thu chỉ từ các bước chuẩn bị này.
 
+Colab native smoke cũng phát hiện `output_lease` chỉ hỗ trợ Windows.
+Lease hiện dùng Windows byte-range lock hoặc POSIX `flock`, đều nonblocking
+và do OS giải phóng khi process kết thúc. Smoke Tesla T4/Linux xác nhận
+writer cạnh tranh bị chặn, acquire được sau release và sau owner exit.
+11 ingestion tests đạt trên Windows; 10 cloud/workflow tests đạt sau khi
+dừng owned local server để giải phóng memory (lượt đầu lỗi WinError 1455/1450).
+Logs: `outputs/tests/colab-linux-lease-smoke-20261002.txt`,
+`colab-lease-tests-20261002.txt`, `colab-lease-recovered-tests-20261002.txt`.
+
+Notebook tạo venv bằng `--without-pip --system-site-packages` vì ensurepip
+không hoạt động trong runtime đã chọn. Pip dùng module có sẵn; sau install,
+chỉ gỡ NVIDIA packages nằm trong venv để không shadow CUDA stack của Colab.
+Không gỡ packages global hoặc thay Torch/torchvision được Colab cung cấp.
+Runtime thực Python 3.11.13/Torch 2.6.0+cu124/Tesla T4 đạt sáu checks,
+bao gồm CUDA FP16/NMS: `outputs/tests/colab-cuda-smoke-20261002.txt`.
+
+
 ## Resume và chi phí
 
 Colab chạy batch qua notebook; UI phục vụ trên Windows. Model cache nằm trên

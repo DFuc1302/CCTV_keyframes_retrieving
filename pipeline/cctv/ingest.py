@@ -68,10 +68,13 @@ def safe_output(manifest: Manifest, output: Path) -> Path:
 
 @contextmanager
 def output_lease(output: Path) -> Iterator[None]:
-    """Hold a Windows lock automatically released by the OS after interruption."""
-    if os.name != "nt":
-        raise RuntimeError("This ingestion launcher targets native Windows")
-    import msvcrt
+    """Hold a nonblocking OS lock, released even when the owner is interrupted."""
+    if os.name == "nt":
+        import msvcrt
+    elif os.name == "posix":
+        import fcntl
+    else:
+        raise RuntimeError(f"Output leases are unsupported on {os.name}")
 
     with (output / ".ingest.lock").open("a+b") as handle:
         handle.seek(0, os.SEEK_END)
@@ -80,14 +83,20 @@ def output_lease(output: Path) -> Iterator[None]:
             handle.flush()
         handle.seek(0)
         try:
-            msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+            if os.name == "nt":
+                msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+            else:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         except OSError as exc:
             raise RuntimeError("Another ingestion process owns this output directory") from exc
         try:
             yield
         finally:
-            handle.seek(0)
-            msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+            if os.name == "nt":
+                handle.seek(0)
+                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
 
 def images_digest(folder: Path) -> str:

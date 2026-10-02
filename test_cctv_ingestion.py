@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -138,6 +139,19 @@ class CCTVIngestionTests(unittest.TestCase):
         with output_lease(self.output):
             with self.assertRaisesRegex(RuntimeError, "Another ingestion"):
                 self.run_pipeline()
+
+    def test_process_exit_releases_output_lock(self) -> None:
+        self.output.mkdir()
+        child = (
+            "import os,sys; from pathlib import Path; "
+            "from pipeline.cctv.ingest import output_lease; "
+            "lease=output_lease(Path(sys.argv[1])); lease.__enter__(); os._exit(0)"
+        )
+        subprocess.run(
+            [sys.executable, "-c", child, str(self.output)],
+            cwd=Path(__file__).parent, check=True, timeout=30,
+        )
+        self.assertEqual(self.run_pipeline(), {"done": 1, "skipped": 0, "error": 0})
 
 
 if __name__ == "__main__":

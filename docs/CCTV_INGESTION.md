@@ -10,6 +10,12 @@ Manifest tách ID video/camera khỏi tên file gốc, để tên bất kỳ, d�
 
 Không cần dataset cũ, tên S01, model, CUDA hay old index. Decoder mặc định CPU; chưa có inference nên chưa sử dụng batch/FP16 cho model. `--device cuda` chỉ đổi decoder FFmpeg, không phải stage CLIP.
 
+Shared `output_lease` hỗ trợ Windows byte-range lock và POSIX `flock`.
+Cả hai nonblocking, chặn writer thứ hai và được OS giải phóng khi process
+kết thúc. Smoke Colab Linux và regression Windows đã kiểm tra cạnh tranh/
+release sau owner exit ngày 2026-10-02; xem
+[Colab portability](CCTV_FULLVIDEO_COLAB.md#code-identity-windows--linux--2026-10-02).
+
 ## Hợp đồng manifest
 
 `configs/cctv.example.json` là scaffold không có video; có thể kiểm tra cấu trúc nhưng không chạy extraction. Ví dụ một bản đã đăng ký video:
