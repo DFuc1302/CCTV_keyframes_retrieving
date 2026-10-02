@@ -118,13 +118,22 @@ class CloudTests(unittest.TestCase):
             unpack(result, self.root / "result")
 
     def test_result_rebases_paths_sqlite_and_dependency_hashes(self):
+        self._check_result_rebase(b"\r\n", b"\n")
+
+    def test_result_rebases_crlf_source_to_lf_checkout(self):
+        self._check_result_rebase(b"\n", b"\r\n")
+
+    def _check_result_rebase(self, local_newline, remote_newline):
         repo = self.root / "repo"
         repo.mkdir()
         local_code = repo / "app/main.py"
         local_code.parent.mkdir()
-        local_code.write_bytes(b"value = 1\r\nprint(value)\r\n")
+        local_bytes = b"value = 1\nprint(value)\n".replace(b"\n", local_newline)
+        local_code.write_bytes(local_bytes)
         remote_code = self.root / "linux-main.py"
-        remote_code.write_bytes(b"value = 1\nprint(value)\n")
+        remote_code.write_bytes(
+            b"value = 1\nprint(value)\n".replace(b"\n", remote_newline)
+        )
         raw = self.root / "raw"
         raw.mkdir()
         source = raw / "VID.mp4"
@@ -221,8 +230,8 @@ class CloudTests(unittest.TestCase):
             signature["manifest_sha256"], digest(destination / "configs/manifest.json")
         )
         self.assertEqual(signature["code_sha256"], digest(local_code))
-        self.assertEqual(local_code.read_bytes(), b"value = 1\r\nprint(value)\r\n")
-        local_code.write_bytes(b"value = 2\r\nprint(value)\r\n")
+        self.assertEqual(local_code.read_bytes(), local_bytes)
+        local_code.write_bytes(b"value = 2\nprint(value)\n")
         with self.assertRaisesRegex(ValueError, "executable version differs"):
             import_result(repo, archive, data, self.root / "rejected")
         self.assertEqual((digest(source), source.stat().st_mtime_ns), original)

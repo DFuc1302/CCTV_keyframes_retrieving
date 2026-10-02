@@ -54,12 +54,12 @@ chuẩn hóa CRLF→LF trước SHA256; thay đổi executable vẫn bị từ c
 Checksums ZIP/raw/model không chuẩn hóa và vẫn kiểm tra bytes nguyên gốc.
 Xuất job mới sau thay đổi này; không sửa metadata/checksum của package cũ.
 
-Importer cũng rebind source dependency hashes LF sang bytes checkout local
+Importer cũng rebind source dependency hashes LF/CRLF sang bytes checkout local
 sau khi code identity đã khớp, trước khi reseal JSON/SQLite và các checksum
 phụ thuộc. Chỉ source code được rebind; ZIP/raw/model vẫn byte-exact.
-Regression kiểm tra signature JSON/SQLite trên CRLF và từ chối executable
-đã đổi; 10 cloud/workflow tests đạt:
-`outputs/tests/colab-source-rebinding-tests-20261002.txt`.
+Regression kiểm tra signature JSON/SQLite theo cả hai hướng LF↔CRLF và từ
+chối executable đã đổi; 11 cloud/workflow tests đạt:
+`outputs/tests/colab-source-newline-variants-tests-20261002.txt`.
 
 10 cloud/workflow tests đạt; smoke export/unpack trên video integration thật
 xác nhận 55 source identities khớp bản LF và reject source executable đổi.

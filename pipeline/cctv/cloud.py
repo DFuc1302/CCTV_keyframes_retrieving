@@ -445,13 +445,16 @@ def import_result(root: Path, archive: Path, data: dict, destination: Path) -> d
             parents.pop()
         )
         shutil.copytree(incoming / "run", destination)
-    # Identity validation above proves these LF digests describe the local source.
-    # Bind imported source dependencies to checkout bytes before resealing artifacts.
-    rebase(
-        destination,
-        paths,
-        {checksum: digest(root / name) for name, checksum in meta["code"].items()},
-    )
+    # Identity validation above proves both LF and CRLF forms describe local source.
+    # Bind source dependencies to checkout bytes before resealing artifacts.
+    source_hashes = {}
+    for name, checksum in meta["code"].items():
+        source = (root / name).read_bytes()
+        local_checksum = hashlib.sha256(source).hexdigest()
+        source_hashes[checksum] = local_checksum
+        crlf_source = source.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
+        source_hashes[hashlib.sha256(crlf_source).hexdigest()] = local_checksum
+    rebase(destination, paths, source_hashes)
     from pipeline.cctv.manifest import load_manifest
 
     manifest = load_manifest(destination / "configs/manifest.json")
