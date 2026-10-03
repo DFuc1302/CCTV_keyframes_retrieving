@@ -50,11 +50,20 @@ Benchmark retrieval HTTP với input/config đóng băng, P50/P95, checkpoint v�
 provenance: [`docs/CCTV_RUNTIME_BENCHMARK.md`](docs/CCTV_RUNTIME_BENCHMARK.md).
 Client không tải model thứ hai; latency kỹ thuật không thay thế nhãn relevance.
 
-Báo cáo kỹ thuật: [`docs/CCTV_PROJECT_REPORT.md`](docs/CCTV_PROJECT_REPORT.md).
-Gói evidence và quy trình tái lập máy thứ hai:
-[`docs/CCTV_HANDOVER.md`](docs/CCTV_HANDOVER.md). Máy thứ hai chưa nghiệm thu.
-Quy trình gồm ảnh ROI, event packages, ba dispatch snapshots và tracking
-overlay; dữ liệu và review journals không đi kèm Git clone.
+Báo cáo kỹ thuật và ma trận engineering/methodological limits hiện hành:
+[`docs/CCTV_PROJECT_REPORT.md`](docs/CCTV_PROJECT_REPORT.md). Queue-context,
+optional geometric stitching, surveyed-calibration km/h, expansion 19 cụm
+Việt–Anh và numerical-certified MILP 100×100 đã có; không tự tạo quality labels,
+ROI approval, recording splits, marker đo thực hoặc physical second-host evidence.
+
+Gói evidence và one-command Windows handover:
+[`docs/CCTV_HANDOVER.md`](docs/CCTV_HANDOVER.md).
+`.\scripts\Test-SecondMachineHandover.ps1 -ReferenceInventory '<origin-inventory.json>' -OriginMachine '<origin-hostname>'`
+kiểm environment/code/source SHA và CUDA/core trong output mới, không autoapprove
+full-process/UI, M8 hoặc accuracy. Local tooling rehearsal chờ evidence;
+máy thứ hai vật lý chưa chạy. Dữ liệu/review journals không đi kèm Git clone.
+Sau dispatch-v2 cutover, regenerate ba snapshots vào folder mới theo handover;
+giữ sealed dispatch-v1/publications làm lịch sử, không rewrite.
 
 Tab Sự kiện & evidence: [`docs/CCTV_EVENTS_UI.md`](docs/CCTV_EVENTS_UI.md).
 Đọc sealed events/review state và mở video evidence; chưa ghi review qua UI.
@@ -67,7 +76,10 @@ CLIP/FAISS/SQLite và CLI tìm kiếm text/image: `docs/CCTV_RETRIEVAL.md`. Pipe
 
 Demo FastAPI tìm kiếm text/image và mở video tại timestamp: `docs/CCTV_DEMO_UI.md`.
 Sau khi chuẩn bị MP4 previews, chạy `.\scripts\Start-CctvDemo.ps1` và mở
-`http://127.0.0.1:8080`. API dùng một CLIP instance, đọc index hiện có và không sửa video gốc.
+`http://127.0.0.1:8080`. CLIP phục vụ thuộc một process riêng; pipeline chờ
+process này thoát trước stage GPU, không sửa video gốc. Windows giới hạn mặc
+định native BLAS/OpenMP hai threads, giữ explicit environment overrides.
+Cold local UI smoke mới đạt 12/12 không recovery; xem `docs/CCTV_UI_WORKFLOW.md`.
 
 Kiểm thử bundle demo hiện có bằng một lệnh (tự start/check/stop server):
 

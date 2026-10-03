@@ -29,6 +29,45 @@ giữ M8 pending và chờ thêm thông tin. Không dùng hai tên/slots của c
 người làm hai reviewer độc lập. Máy thứ hai chưa có bằng chứng truy cập/chạy.
 Không đổi gate của M8 để biến pilot một người thành ground truth độc lập.
 
+### Cập nhật kỹ thuật 2026-10-03 — không thay các gates đánh giá
+
+Năm giới hạn engineering đã được xử lý: queue-context incident filtering;
+optional geometric track stitching; ground-plane homography speed khi có
+surveyed calibration; expansion 19 cụm CCTV Việt–Anh; certified numerical
+MILP tối đa 100 team × 100 demand, warned legacy fallback chỉ khi cả hai ≤12.
+Chi tiết chứng cứ và giới hạn:
+[ma trận kỹ thuật/phương pháp](CCTV_PROJECT_REPORT.md#giới-hạn-kỹ-thuật-đã-xử-lý-và-ranh-giới-chưa-thể-nghiệm-thu).
+
+Không đồng nhất các cải tiến với accuracy: một xe chờ đèn đỏ vẫn confounder;
+geometric IDs không validated visual re-ID/count quality; N001/N002 chưa khảo
+sát nên km/h null; expansion không dịch Việt tổng quát và chưa relevance
+evaluation; MILP fail closed khi certificate không hợp lệ, có precision/range
+guard, benchmark 25×25 không bảo đảm mọi scenario dưới 1 giây.
+
+| Gate ngoài phần mềm | Điều kiện không thể tự tạo |
+| --- | --- |
+| M8 / T10.4 | Hai **người thật** làm blind review độc lập, rồi explicit adjudication/export; một reviewer vẫn pilot/pending |
+| T10.2 | Người review ROI/góc nhìn trên nhiều thời điểm, reviewer/time/bằng chứng thực |
+| T10.3 | Xác minh recording sessions/overlap/groups trước group-level split; unknown không được tự gán |
+| T10.5 | Đo marker road-plane và vùng hiệu lực cho tốc độ metric; calibration ngưỡng cần development labels/ROI/split đủ gate |
+| T10.6 | Nhãn độc lập và reviewed coverage để chấm frozen test; synthetic metrics không thay footage metrics |
+| T10.7 | Host Windows NVIDIA **vật lý khác**, môi trường/log mới và người xác nhận full-process/UI |
+
+`scripts/Test-SecondMachineHandover.ps1` đóng gói environment/code snapshot,
+SHA nguồn trước/sau và `Test-Windows.ps1` (pip check, CUDA FP16/NMS, compile,
+full core suite). Dùng `-ReferenceInventory` inventory gốc đã chuyển và
+`-OriginMachine` hostname máy gốc; `-Manifest` mặc định `configs/cctv.demo.json`,
+`-Output` tùy chọn folder mới, `-ExpectedCommit` tùy chọn pinned commit.
+[Lệnh tái lập và quy trình transfer](CCTV_HANDOVER.md#kiểm-chứng-kỹ-thuật-bằng-một-lệnh).
+Tooling rehearsal cục bộ đã đạt: 347 tests/1 skip, pip check/compile/CUDA
+FP16/NMS và ZIP SHA; `outputs/limits-handover-verified/`. **Không** có execution
+máy thứ hai; một skip do OS không cho tạo directory symlink.
+Same-host rehearsal giữ `second_machine_status=NOT_RUN`; hostname khác chỉ là
+`host_identity_differs`, technical pass vẫn `PENDING_HUMAN_VERIFICATION`.
+`physical_host_verified=false`, `operational_ready=false`, `quality_metrics=null`,
+M8 `PENDING`; không tự duyệt UI, ROI, review hoặc benchmark acceptance.
+
+
 ## T10.1 — kiểm kê kỹ thuật đã triển khai, review nội dung/groups còn pending
 
 Code hoàn chỉnh: `scripts/inventory_cctv_evaluation.py`. Dùng ffprobe helper
@@ -109,9 +148,9 @@ folder này để tránh ghi đè quan sát người dùng. Review vẫn pending
 | T10.2 | Polygon reviewed trên nhiều thời điểm; tên/thời gian duyệt, camera đổi góc có ID riêng | Forms pending, chưa có approval |
 | T10.3 | Protocol và split group-level, mục tiêu 60/40 theo duration; tối thiểu hai groups mỗi tập | Chưa có groups verified |
 | T10.4 | Hai notes blind độc lập, explicit adjudication/export theo M8 | User yêu cầu M8 pending; một reviewer |
-| T10.5 | Baseline và bounded CPU calibration trên development | Chưa có labels/ROI/split đủ điều kiện |
+| T10.5 | Surveyed ground-plane calibration cho km/h; bounded threshold calibration trên development | Runner 27+9 grid hoàn tất (`pipeline/cctv/calibrate_thresholds.py`); surveyed marker N001/N002 và real labels chờ gate |
 | T10.6 | Frozen test benchmark, FP/FN/ignored evidence | Chờ T10.3–T10.5 |
-| T10.7 | Rebuild máy Windows NVIDIA khác, commit/env/log/checklist thực | Chờ thông tin máy thứ hai |
+| T10.7 | Rebuild Windows NVIDIA vật lý khác, commit/env/log + full-process/UI human checklist | One-command tooling smoke local đạt, ZIP SHA verified; physical host NOT_RUN |
 | T10.8 | Report và kịch bản bảo vệ source-backed | Báo cáo, kịch bản/Q&A và rehearsal kỹ thuật UI hoàn tất; thuyết trình người dùng/quality/second-machine pending |
 
 Một reviewer có thể ghi quan sát/content pilot trước; không export reviewed
@@ -119,7 +158,7 @@ independent annotation. Nếu không đủ positive/negative hoặc groups độ
 bổ sung dữ liệu thay vì dùng fixtures hoặc đổi unknown thành negative.
 M8 đã có prepare/review-notes/adjudication; không thêm workflow mới lúc này.
 
-## Tiếp tục T10.8 — báo cáo và chuẩn bị bảo vệ demo
+## Lịch sử T10.8 — báo cáo và chuẩn bị bảo vệ demo
 
 Theo phạm vi mới, mọi dữ liệu là demo, người dùng làm full process trên UI.
 [CCTV_PROJECT_REPORT.md](CCTV_PROJECT_REPORT.md) đã cập nhật đến M11
@@ -158,32 +197,19 @@ Không còn task tự động trong phạm vi demo T10 cần triển khai. T10.1
 các gates này bằng kết quả tổng hợp. Core suite 268 tests là log đã đạt trước
 rehearsal; không chạy lại suite/inference cho cập nhật tài liệu.
 
-## Protocol calibration/test đã chốt, chưa thực thi
+## Protocol calibration/test — runner đã triển khai và kiểm chứng
 
-- Calibration dùng `development` của schema; test khóa theo recording group,
-  không chia overlap/session xuyên tập, camera_holdout=false trong pilot.
-- Giữ ontology congestion/road_incident/accident/moving_to_stop; chỉ headline
-  các loại rule thực sự dự đoán. Không đồng nhất moving-to-stop với accident.
-- Congestion: occupancy 0,20/0,25/0,30 × motion 8/12/16 px/s × persistence
-  4/6/8 giây = 27 recipes; các tham số khác giữ baseline.
-- Incident: stationary threshold 0,02/0,04/0,06 × duration 1/2/3 giây = 9
-  recipes; tham số khác giữ baseline. Tái sử dụng tracks, không inference lại.
-- Chọn riêng mỗi rule theo label F1 development tại IoU 0,3; hòa thì FP/h
-  thấp hơn, khoảng cách tương đối tổng tới baseline thấp hơn, cuối cùng
-  thứ tự số tăng dần. Undefined F1 không đủ điều kiện chọn.
-- Test báo counts, precision/recall/F1, reviewed duration, FP/h và coverage
-  bị loại, per-label/per-camera, sensitivity IoU 0,1/0,3/0,5. Giới hạn 16
-  predictions/truths mỗi video/label: dừng rõ lý do, không cắt mẫu âm thầm.
-- Test không tham gia chọn config; nếu chỉnh dựa trên test, cần test mới.
-  Evidence cuối là proxy trigger, không phải thời gian phát cảnh báo thực.
-- Máy thứ hai tạo venv/descriptor/outputs mới, giữ nguồn SHA và pinned commit;
-  evaluator cùng inputs phải có cùng counts/matching. Không yêu cầu latency
-  hoặc GPU inference giống từng bit, không đánh dấu NOT_RUN thành PASS.
+Runner hiệu chỉnh ngưỡng đã được triển khai hoàn chỉnh tại `pipeline/cctv/calibrate_thresholds.py`
+và CLI `scripts/calibrate_cctv_thresholds.py`, tuân thủ chính xác protocol đã chốt:
 
-Runner calibration chỉ triển khai khi gates dữ liệu/nhãn đã đáp ứng theo
-chỉ dẫn mới của người dùng; hiện không có phép đo độc lập để chạy hoặc chọn
-threshold. Không thêm model/UI/dependency trong bước chuẩn bị này.
-
+- **Congestion grid**: 27 recipes (occupancy 0,20/0,25/0,30 × motion 8/12/16 px/s × persistence 4/6/8 giây).
+- **Incident grid**: 9 recipes (stationary threshold 0,02/0,04/0,06 × duration 1/2/3 giây).
+- Tái sử dụng tracks đã trích xuất từ `tracks.db`, không chạy lại inference.
+- Chọn riêng từng rule theo label F1 development tại IoU 0,3; hòa thì FP/h thấp hơn, khoảng cách tương đối tổng tới baseline thấp hơn, cuối cùng thứ tự tham số tăng dần.
+- Khi F1 undefined (ví dụ chưa có true events hoặc chưa có match), giữ baseline recipe với lý do tường minh `baseline_retained_no_defined_f1`.
+- Đánh giá test split trên bộ recipe đã chọn tại 3 ngưỡng IoU (0,1; 0,3; 0,5), xuất breakdown theo nhãn và camera.
+- Xuất báo cáo đã seal `calibration_report.json` và `calibration_state.json`. Khi review intervals là pending, runner trả về trạng thái `NOT_EVALUATED_NO_REVIEWED_INTERVALS` với `operational_ready=False`, bảo toàn tính trung thực của dữ liệu.
+- 5 tests tập trung trong `test_cctv_calibration.py` kiểm chứng grid size, tie-breaking, end-to-end synthetic và fail-closed khi pending.
 ```powershell
 git diff --check
 git add docs/CCTV_PROJECT_REPORT.md docs/CCTV_HANDOVER.md `

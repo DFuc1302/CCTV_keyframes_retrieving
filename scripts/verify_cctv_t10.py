@@ -32,6 +32,7 @@ TESTS = (
     "test_cctv_incidents",
     "test_cctv_dispatch",
     "test_cctv_workflow",
+    "test_cctv_calibration",
 )
 
 

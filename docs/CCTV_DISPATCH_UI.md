@@ -2,9 +2,10 @@
 
 ## Concept và kiến trúc
 
-T5.2 đã có solver exact ưu tiên → tổng di chuyển → nhân lực, với giới hạn
-12 đội/12 yêu cầu. T7.2 nối các báo cáo đó vào FastAPI và UI; request HTTP
-không chạy lại solver hoặc nạp model. Các đội và khu vực đều giả định.
+T5.2 dùng sparse MILP ưu tiên → tổng di chuyển → nhân lực, giới hạn 100
+đội/100 yêu cầu; certificate số học và oracle DP nhỏ được mô tả tại
+`CCTV_DISPATCH.md`. T7.2 nối reports vào FastAPI/UI; GET chỉ đọc, không
+chạy lại solver hoặc nạp model. Các đội và khu vực đều giả định.
 
 `app/cctv_dispatch.py` đọc checkpoint/report, kiểm tra checksum, manifest,
 resource config, demand config và snapshot event/review. Event nguồn phải
@@ -20,8 +21,9 @@ tính lại tính tối ưu; thuật toán đã có kiểm thử oracle tại T5
 - `/cctv/dispatch/{package_id}`: report đã kiểm tra, nhân lực, assignments,
   unmet reasons, SHA snapshot; không trả đường dẫn file/cấu hình nội bộ.
 
-Mỗi gói có tối đa 12 yêu cầu nên không cần phân trang. Lỗi gói riêng trả 503,
-ID không đăng ký trả 404; retrieval không bị vô hiệu hóa. Không có POST route.
+Mỗi gói có tối đa 100 yêu cầu, hiện hiển thị trọn gói không phân trang.
+Lỗi gói riêng trả 503, ID không đăng ký trả 404; retrieval không bị vô hiệu
+hóa. Các GET routes chỉ đọc; tính proposal workflow là thao tác riêng.
 `create_app(dispatch_store=...)` cho phép inject paths ở deployment/test;
 manifest và resources mặc định có thể đổi bằng `$env:CCTV_MANIFEST` và
 `$env:CCTV_RESOURCE_CONFIG`. Các report/package path mặc định nằm dưới repo.
@@ -35,9 +37,9 @@ ngăn response cũ ghi đè khi đổi kịch bản. Tabs hỗ trợ Arrow/Home/
 
 | ID | Output | Kết quả dự kiến |
 | --- | --- | --- |
-| `simulation` | `outputs/demo-data/dispatch-simulation-v1` | 1 assignment, 2 unmet; xếp 2/4 người sẵn sàng, giữ dự phòng 2 |
-| `events_empty` | `outputs/demo-data/dispatch-events-empty-v1` | 0 request, 0 assignment; không tự tạo journal |
-| `review_gate` | `outputs/demo-data/dispatch-review-gate-v1` | Case synthetic đang `needs_more_evidence`, 0 assignment, 1 unmet |
+| `simulation` | `outputs/demo-data/dispatch-simulation-v2` | 1 assignment, 2 unmet; xếp 2/4 người sẵn sàng, giữ dự phòng 2 |
+| `events_empty` | `outputs/demo-data/dispatch-events-empty-v2` | 0 request, 0 assignment; không tự tạo journal |
+| `review_gate` | `outputs/demo-data/dispatch-review-gate-v2` | Case synthetic đang `needs_more_evidence`, 0 assignment, 1 unmet |
 
 Gói review gate dùng demand file local
 `outputs/demo-data-review/dispatch-event-request.json` và journal demo hiện có.

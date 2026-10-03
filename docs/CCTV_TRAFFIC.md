@@ -29,23 +29,66 @@ Validation tham chiếu qua `validate_record(json_text, manifest, config)`:
 | `DetectionFrame`, kind `detections` | run_id, locator, width/height dương, detections; list rỗng là frame đã xử lý không có detection |
 | `Detection` | label bicycle/motorcycle/car/bus/truck, confidence `[0,1]`, bbox normalized xyxy có diện tích dương |
 | `TrackObservation`, kind `track` | detection và locator, run_id/segment_id/track_id; track_key gồm run/camera/video/segment/id |
-| `TrafficWindow`, kind `window` | khoảng `[start_sec,end_sec)`, sample_count dương, mean_vehicle_count, mean_occupancy, median_motion_px_per_sec hoặc null; camera phải có ROI approved |
+| `TrafficWindow`, kind `window` | khoảng `[start_sec,end_sec)`, sample_count dương, mean_vehicle_count, mean_occupancy, median_motion_px_per_sec hoặc null; median_speed_kmh và calibration_sha256 tùy chọn; camera phải có ROI approved |
 
 Locator giữ `camera_id`, `video_id`, `timestamp_sec` tương đối từ frame đầu được
 giải mã, `frame_idx` ordinal 0-based. Camera/video phải khớp manifest. Chưa tự
 kiểm tra frame_idx/PTS với map hoặc duration: bước pipeline T3.2/T3.3 phải lấy
 locator từ frame giải mã thật. Frame_idx không phải số thứ tự file keyframe.
-Không suy timestamp tuyệt đối, geolocation hoặc km/h từ dữ liệu hiện tại.
+Không suy timestamp tuyệt đối hoặc geolocation. km/h chỉ có khi cung cấp hiệu
+chuẩn mặt đường riêng; cấu hình demo hiện chưa có số đo thực địa.
 
 Window occupancy dự kiến là phần diện tích ROI bị các box xe che phủ, union để
 không đếm đôi phần giao nhau; count dự kiến đếm tâm đáy box trong ROI. Đây là
-định nghĩa cho stage thống kê tiếp theo, T3.1 chưa tính các giá trị này. Motion
-phải xác định từ track và PTS thật, chưa có chuyển đổi pixel sang mét.
+định nghĩa cho stage thống kê tiếp theo; T3.1 ban đầu chưa tính các giá trị này.
+Motion phải xác định từ track và PTS thật; metric speed dùng hợp đồng hiệu chuẩn
+mặt đường bên dưới, không diễn giải lại pixel motion thành km/h.
 
 Detection/tracking baseline được phép chạy trước khi duyệt ROI. Thống kê ROI
 không được gán approved chỉ bằng chuỗi trong record: validator đối chiếu cấu
 hình camera thực tế. Không có record tai nạn, score congestion hoặc đề xuất
 dispatch trong schema này.
+
+## Hiệu chuẩn mặt đường và tốc độ metric
+
+`configs/cctv.calibration.demo.json` khai báo `schema_version: 1`,
+`calibrations: []`, `pending_cameras: ["N001", "N002"]`. Chưa có số đo mốc đường
+cho hai camera này: không dùng chiều rộng làn, khoảng vạch sơn hoặc tọa độ giả
+làm số đo N001/N002. Cấu hình pending hợp lệ không tạo tốc độ km/h.
+
+| Contract | Nội dung |
+| --- | --- |
+| `GroundPointPair` | `image_point: [u,v]` chuẩn hóa `[0,1]`; `ground_point_meters: [X,Y]` hữu hạn, đơn vị mét, không giới hạn `[0,1]` và có thể âm |
+| `CameraCalibration` | `camera_id`, `calibration_version: 1`, `points` gồm 4–64 cặp không suy biến, `roi_polygon` là vùng hiệu lực chuẩn hóa, `reviewer`/`reviewed_at` tùy chọn |
+| `CalibrationConfig` | `schema_version: 1`, `calibrations`, `pending_cameras` (mặc định rỗng); không lặp camera hoặc khai báo camera ngoài manifest |
+
+Mỗi calibration cần **ít nhất bốn mốc đồng phẳng đã đo vật lý**, phân bố trên
+vùng đường cần đo, không thẳng hàng/suy biến trong ảnh hoặc mặt đất. Xác định
+hệ tọa độ mặt đất cố định với hai trục X/Y và cùng đơn vị mét cho tất cả mốc;
+tọa độ âm hoặc lớn hơn 1 hoàn toàn hợp lệ. Chuẩn hóa vị trí mốc ảnh bằng kích
+thước ảnh tương ứng, không chuẩn hóa tọa độ mét. `roi_polygon` tuân thủ cùng
+quy tắc polygon chuẩn hóa ở trên, là vùng hiệu lực của phép chiếu, không phải
+phê duyệt ROI giao thông. `reviewer` và `reviewed_at` phải cùng có hoặc cùng
+không có; khi có, thời gian ISO 8601 cần timezone. Không tự gán người duyệt.
+
+`TrafficWindow.median_speed_kmh` là số hữu hạn không âm hoặc null;
+`calibration_sha256` là SHA256 truy vết calibration của camera hoặc null. Record cũ
+không có hai trường này vẫn nạp được, mặc định null. Không có hiệu chuẩn hoặc
+không có cặp chiếu hợp lệ thì tốc độ là **không khả dụng**, không phải 0.
+Điểm tâm đáy bbox ngoài vùng hiệu lực không được ngoại suy để tạo tốc độ.
+`median_motion_px_per_sec` vẫn độc lập và giữ nguyên ý nghĩa/đơn vị.
+
+Homography giả định mặt đường cục bộ phẳng. Dốc thay đổi, cầu, mặt đường cong
+hoặc xe trên mặt phẳng khác có thể làm sai tốc độ. Camera rung/đổi góc/zoom
+hoặc thay crop đòi hỏi đo và hiệu chuẩn lại; bbox jitter, occlusion, ID đổi
+và lỗi PTS cũng có thể làm sai chuyển động. Geometry hợp lệ không phải bằng
+chứng tốc độ thực đã được kiểm chứng, không duyệt ngưỡng congestion, ROI
+hoặc nhãn M8. Cần đối chiếu đo tốc độ độc lập và review người thật.
+
+Để chạy với file hiệu chuẩn, dùng `--calibration-config` của
+`pipeline.cctv.congestion`; xem lệnh và cách truy vết output trong
+[CCTV_CONGESTION.md](CCTV_CONGESTION.md). Không cần sửa raw, manifest hoặc
+cấu hình tracking đã niêm phong.
 
 ## Chạy và kiểm thử PowerShell
 

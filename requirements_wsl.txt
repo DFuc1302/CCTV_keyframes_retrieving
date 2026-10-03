@@ -1,6 +1,7 @@
 fastapi
 uvicorn[standard]
 numpy<2.0
+scipy>=1.9,<2
 pillow
 opencv-python-headless
 tqdm

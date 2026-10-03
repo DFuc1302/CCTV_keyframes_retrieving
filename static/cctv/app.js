@@ -59,7 +59,9 @@ function element(tag, className, text) {
 }
 function view(result) {
   $("viewer-title").textContent = `${result.video_id} · Camera ${result.camera_id}${result.tracking_overlay ? " · Tracking overlay" : ""}`;
-  $("viewer-meta").textContent = `${timeLabel(result.timestamp_sec)} trong video nguồn · Frame nguồn ${result.frame_idx}${result.tracking_overlay ? " · Predictions, ID theo segment, ROI chưa duyệt" : ""}`;
+  const overlayScope = result.id_scope === "derived_global_track_id/geometric_hypothesis"
+    ? "ID nối hình học chưa kiểm chứng" : "ID theo segment";
+  $("viewer-meta").textContent = `${timeLabel(result.timestamp_sec)} trong video nguồn · Frame nguồn ${result.frame_idx}${result.tracking_overlay ? ` · Predictions, ${overlayScope}, ROI chưa duyệt` : ""}`;
   $("video-error").hidden = true;
   const video = $("video");
   video.onloadedmetadata = () => {
@@ -106,7 +108,9 @@ async function search() {
   try {
     const response = await fetch(url, options); const data = await response.json();
     if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Truy vấn chưa hợp lệ. Kiểm tra ảnh hoặc mô tả.");
-    render(data.results); $("result-summary").textContent = `${data.total} kết quả · Chọn một keyframe để xem video.`;
+    render(data.results);
+    const interpreted = data.translated_prompt ? ` · Hiểu truy vấn: ${data.translated_prompt}` : "";
+    $("result-summary").textContent = `${data.total} kết quả · Chọn một keyframe để xem video.${interpreted}`;
   } catch (problem) {
     error(problem.message || "Không thể hoàn tất tìm kiếm."); $("result-summary").textContent = "Tìm kiếm chưa hoàn tất.";
   } finally { setBusy(false); }

@@ -14,6 +14,7 @@ class Signal(Contract):
     window: DraftWindow | TrafficWindow
     coverage: Unit
     motion_pairs: Annotated[int, Field(ge=0)]
+    metric_motion_pairs: Annotated[int, Field(ge=0)] = 0
     evidence_sufficient: bool
     status: Literal[
         "insufficient_evidence", "no_candidate", "slow_dense", "congestion_candidate"
@@ -32,4 +33,6 @@ class Signal(Contract):
             self.motion_pairs == 0 or self.window.median_motion_px_per_sec is None
         ):
             raise ValueError("Motion evidence is missing")
+        if (self.metric_motion_pairs > 0) != (self.window.median_speed_kmh is not None):
+            raise ValueError("Metric motion evidence/speed mismatch")
         return self

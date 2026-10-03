@@ -2,20 +2,23 @@
 
 from __future__ import annotations
 
+import io
 import json
 import sqlite3
 import tempfile
+import unicodedata
 import unittest
-from contextlib import closing
+from contextlib import closing, redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
 from PIL import Image
 
+from app.query_hints import CCTV_VI_EN_VOCAB, expand_bilingual_query, keyword_hints
 from pipeline.cctv.index import build_index
 from pipeline.cctv.ingest import digest, images_digest
-from pipeline.cctv.search import CctvSearch
+from pipeline.cctv.search import CctvSearch, main as search_main
 
 
 class TinyEncoder:
@@ -99,6 +102,7 @@ class CCTVIndexTests(unittest.TestCase):
             "device": "cpu",
             "clip_model": "test-only",
             "revision": "fixture",
+            "model_sha256": "0" * 64,
         }
 
     def build(self, factory=TinyEncoder, output: Path | None = None) -> dict:
@@ -110,6 +114,92 @@ class CCTVIndexTests(unittest.TestCase):
             batch_size=2,
             encoder_factory=factory,
         )
+
+    def test_bilingual_query_boundaries_normalization_and_unknown_text(self) -> None:
+        self.assertEqual(
+            expand_bilingual_query(unicodedata.normalize("NFD", "XE MÁY ban ĐÊM, xe máy")),
+            ("motorcycle motorbike night nighttime dark, motorcycle motorbike",
+             ["xe máy", "ban đêm"]),
+        )
+        untouched = "  Red CAR xe máynhỏ _xe máy xe máy2 unknown  "
+        self.assertEqual(expand_bilingual_query(untouched), (untouched, []))
+        self.assertEqual(
+            expand_bilingual_query("MỚI: (xe máy), chậm"),
+            ("mới: (motorcycle motorbike), chậm", ["xe máy"]),
+        )
+        self.assertEqual(
+            keyword_hints("XE MÁY và xe", {"xe": "vehicle", "xe máy": "motorbike"}),
+            {"vehicle", "motorbike"},
+        )
+        self.assertEqual(
+            keyword_hints("xe máy", {"xe": "vehicle", "xe máy": "motorbike"}),
+            {"motorbike"},
+        )
+
+    def test_bilingual_domain_concepts(self) -> None:
+        expected = {
+            "tai nạn": "traffic accident collision crash",
+            "va chạm": "vehicle collision impact",
+            "tắc đường": "traffic jam congestion slow traffic",
+            "kẹt xe": "traffic jam queue congestion",
+            "xe máy": "motorcycle motorbike",
+            "ô tô": "car automobile",
+            "xe hơi": "car automobile",
+            "xe buýt": "bus transit bus",
+            "xe tải": "truck cargo vehicle",
+            "xe đạp": "bicycle cyclist",
+            "ngã tư": "road intersection crossroad",
+            "ngã ba": "T-junction intersection",
+            "đường phố": "city street road",
+            "ban đêm": "night nighttime dark",
+            "ban ngày": "daytime daylight",
+            "trời mưa": "rain rainy wet road",
+            "cảnh sát": "police officer patrol car",
+            "dừng lại": "stopped vehicle stationary",
+            "quay đầu": "u-turn turning vehicle",
+        }
+        for phrase, prompt in expected.items():
+            with self.subTest(phrase=phrase):
+                self.assertEqual(expand_bilingual_query(phrase), (prompt, [phrase]))
+
+    def test_bilingual_cli_and_direct_retrieval_rankings(self) -> None:
+        self.build()
+        search = CctvSearch(self.output)
+
+        class DomainEncoder(TinyEncoder):
+            # Fixed synthetic semantic vectors; unrelated prompts target a distractor.
+            def text(self, prompt):
+                return np.asarray({
+                    "motorcycle motorbike night nighttime dark": [1, 0, 0],
+                    "traffic jam congestion slow traffic road intersection crossroad": [0, 1, 0],
+                    "red car": [1, 0, 0],
+                }.get(prompt, [0, 0, 1]), dtype=np.float32)
+
+        encoder = DomainEncoder(self.model, "cpu")
+        for vietnamese, english, target in (
+            ("xe máy ban đêm", "motorcycle motorbike night nighttime dark", "001.jpg"),
+            ("tắc đường ngã tư", "traffic jam congestion slow traffic road intersection crossroad", "002.jpg"),
+            ("red car", "red car", "001.jpg"),
+        ):
+            with self.subTest(query=vietnamese):
+                expected = search.query(encoder.text(english), 4)
+                self.assertEqual(expected[0]["file"], f"N001-V001/{target}")
+                self.assertGreater(expected[0]["score"], expected[1]["score"])
+                translated, _ = expand_bilingual_query(vietnamese)
+                self.assertEqual(search.query(encoder.text(translated), 4), expected)
+                for query in (vietnamese, english):
+                    output = io.StringIO()
+                    argv = ["search", "--index-dir", str(self.output),
+                            "--model-config", str(self.model), "--device", "cpu",
+                            "--top-k", "4", "--query", query]
+                    with patch("sys.argv", argv), \
+                            patch("pipeline.cctv.search.model_recipe",
+                                  return_value=(search.manifest["recipe"], self.model)), \
+                            patch("pipeline.cctv.search.ClipEncoder", DomainEncoder), \
+                            redirect_stdout(output):
+                        self.assertEqual(search_main(), 0)
+                    # Actual published FAISS/SQLite ranking and existing list JSON shape.
+                    self.assertEqual(json.loads(output.getvalue()), expected)
 
     def test_round_trip_preserves_camera_timestamp_and_inputs(self) -> None:
         before = {p: digest(p) for p in self.source.rglob("*") if p.is_file()}

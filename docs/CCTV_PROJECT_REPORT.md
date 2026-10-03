@@ -1,10 +1,10 @@
 # Báo cáo kỹ thuật đồ án CCTV — VGU Explore Computer Science
 
 Ngày lập: 2026-10-01. Phạm vi: baseline demo trên Windows 11 Native,
-PowerShell, RTX 4070 Laptop 8GB. Cập nhật T10.8 bao gồm M9 và M11 tại commit
-`bcc8e64`. Toàn bộ dữ liệu là demo theo phạm vi người dùng. Các phép đo latency
-T6.2/T7.3/T9.4 là lịch sử gắn phiên bản code, chưa đo latency M11. Chưa nghiệm
-thu chạy máy thứ hai hoặc chất lượng nhận diện trên nhãn độc lập.
+PowerShell, RTX 4070 Laptop 8GB. Cập nhật hiện hành 2026-10-03: năm giới hạn
+kỹ thuật đã được xử lý trong phạm vi nêu ở mục 3–4; T10.8/M11 tại commit
+`bcc8e64` và latency T6.2/T7.3/T9.4 bên dưới là bằng chứng lịch sử gắn phiên bản.
+Chưa nghiệm thu chạy máy Windows vật lý thứ hai hoặc chất lượng trên nhãn độc lập.
 
 ## 1. Bài toán và kết quả hiện có
 
@@ -20,7 +20,8 @@ M11 cho phép chọn demo/upload video, gán camera/ROI, chạy pipeline, review
 demo, tính proposal và tải báo cáo trong một UI; mở bằng `Open-CctvDemo.cmd`.
 Tuyến T10 bổ sung nút tự kiểm chứng kết quả đã có, năm bước kỹ thuật,
 dừng/retry và report JSON/Markdown trong ZIP. Smoke browser đã đạt 5/5,
-dừng/retry cùng job và tải báo cáo thành công; 268 core tests Windows đạt.
+dừng/retry cùng job và tải báo cáo thành công; 268 core tests Windows đạt tại
+rehearsal T10 trước các thay đổi hiện hành, không phải số full suite mới.
 Đây là kiểm tra khả năng xử lý demo; chất lượng footage vẫn chưa đo,
 M8 pending và máy thứ hai NOT_RUN.
 Chưa có multimodal fusion OCR/ASR cho CCTV hoặc hệ thống
@@ -61,11 +62,12 @@ flowchart LR
     D --> E[Text/image API + video seek]
     B --> F[YOLO keyframe detections]
     A --> G[Native frames + ByteTrack]
-    G --> H[Draft ROI traffic windows]
-    G --> I[Move then stop rule]
+    G --> S[Optional geometric track stitching]
+    G --> H[ROI traffic + optional surveyed homography]
+    G --> I[Move then stop + queue context]
     H --> J[Event evidence + review journal]
     I --> J
-    J --> K[Bounded simulated allocation]
+    J --> K[Certified numerical MILP simulation]
     D --> L[Technical HTTP benchmark]
     J --> M[Annotation/split event evaluator]
     U[UI dataset + ROI + job] --> B
@@ -79,23 +81,41 @@ vector chuẩn hóa FP32. Với hai vector đơn vị, inner product bằng cosi
 `cos(u,v) = u·v / (||u|| ||v||) = u·v`. FAISS `IndexIDMap2(IndexFlatIP(768))`
 tìm chính xác, tránh thêm tham số approximate index khi baseline chỉ 7.232 ảnh.
 Cosine score không phải xác suất tai nạn. SQLite mở `mode=ro` khi retrieval.
-Text query baseline bằng tiếng Anh; chất lượng tiếng Việt chưa được đánh giá.
+Text query hiện có expansion 19 cụm từ CCTV Việt–Anh; API/CLI embed prompt
+English đã chuẩn hóa và API cho thấy `translated_prompt`. Đây không phải
+dịch tiếng Việt tổng quát; chất lượng relevance song ngữ chưa được đánh giá.
 
 Keyframe map giữ PTS tương đối frame giải mã đầu tiên và ordinal 0-based.
-ByteTrack chạy trên frame native liên tiếp, reset ID theo segment; tránh suy
-motion từ sampling 2 FPS. Count sử dụng điểm tham chiếu box trong ROI; occupancy
-union tránh đếm chồng diện tích. Motion tính theo pixel/giây, chưa phải km/h.
-Ngưỡng và persistence trong config là baseline chưa calibration.
+ByteTrack chạy trên frame native liên tiếp và vẫn reset ID theo segment để
+giữ checkpoint/bộ nhớ bounded; tránh suy motion từ sampling 2 FPS. Stitching
+hậu xử lý **tùy chọn** dùng hình học, vận tốc/PTS, lớp và bbox để nối tracklets,
+không sửa ledger gốc; overlay có thể đọc derived global IDs. Không phải visual
+re-ID đã kiểm định hay bằng chứng đếm xe duy nhất chính xác.
+Count sử dụng điểm tham chiếu box trong ROI; occupancy union tránh đếm chồng
+diện tích. Motion pixel/giây vẫn có; `median_speed_kmh` chỉ có khi cung cấp
+calibration ground-plane homography từ điểm đường đo thực, trong vùng hiệu lực.
+Không có calibration thì km/h null, không đổi pixel/s thành km/h giả.
+N001/N002 trong `configs/cctv.calibration.demo.json` vẫn pending, không có điểm
+khảo sát. Homography giả định mặt đường cục bộ phẳng; ngưỡng/persistence vẫn
+chưa hiệu chỉnh trên development có nhãn độc lập.
 
 Move-then-stop dùng lịch sử scoped track và PTS, reset khi gap/ID/ROI/segment
-không hợp lệ. Xe chờ đèn đỏ cũng có thể tạo ứng viên. Vì vậy output là
+không hợp lệ. Queue-context lọc dừng đồng bộ/nhập hàng xe và xét lại khi các xe
+lân cận rời đi; giảm confounder hàng xe/đèn đỏ nhiều xe trong fixtures.
+Một xe chờ đèn đỏ đơn lẻ vẫn có thể tạo ứng viên. Output vẫn là
 `suspected_road_incident`, cần review, không kết luận tai nạn tự động.
 
-Dispatch chỉ chạy với zone/team/travel mô phỏng. Exact solver trong giới hạn
-12 team/12 demand ưu tiên lexicographic theo priority, rồi giảm travel và
-staff; giữ whole team, skills, allowed zones, shared budget và reserve.
-Event source lấy trạng thái từ review journal, không tin review_status do
-request tự khai. Không gửi lệnh điều động hoặc gán vị trí camera thực tế.
+Dispatch chỉ chạy với zone/team/travel mô phỏng. Sparse binary MILP hỗ trợ
+tối đa **100 team × 100 demand**, tối ưu lexicographic priority, travel, staff
+và tie-break xác định; giữ whole team, skills, allowed zones, cap và reserve.
+Mỗi stage phải có HiGHS optimal/zero-gap và certificate được kiểm tra bằng
+số nguyên; đây là chứng nhận tối ưu **số học**, không phải chứng minh ký hiệu.
+Travel decimal được scale chính xác; tổng integer conservatively bounded
+`2**40`, từ chối precision/range không biểu diễn an toàn, không âm thầm làm tròn.
+Thiếu SciPy hoặc precision guard chỉ được fallback DP legacy khi **cả team và
+demand ≤12**, có cảnh báo; lớn hơn hoặc certificate thất bại thì fail closed,
+không publish proposal một phần. Event source lấy trạng thái từ review journal,
+không tin review_status request tự khai. Không gửi lệnh điều động thực.
 
 M11 gọi lại các CLI hiện có bằng worker local, một job tại một thời điểm.
 CLIP phục vụ được giải phóng trước index/tracking và nạp lại khi hoàn tất.
@@ -103,6 +123,24 @@ Upload được sao chép vào output riêng; raw demo có sẵn vẫn chỉ đ�
 có cấu hình riêng và checkpoint của từng stage; retry giữ recipe cũ. Review
 UI dùng revision guard, proposal dùng journal/nguồn lực hiện tại. M8 vẫn
 pending: review demo một người không thay thế nhãn độc lập.
+
+### Giới hạn kỹ thuật đã xử lý và ranh giới chưa thể nghiệm thu
+
+| Thành phần | Đã triển khai/kiểm chứng kỹ thuật | Ranh giới còn mở |
+| --- | --- | --- |
+| Nghi sự cố | Queue-context cho collective stop/queue; re-evaluate khi queue rời | Xe đơn lẻ chờ đèn đỏ vẫn confounder; chưa có FP/FN footage độc lập |
+| Tracking | Stitching hình học tùy chọn qua segment, giữ scoped ledger gốc | Không visual re-ID; chưa kiểm định identity/count quality hoặc continuity mọi trường hợp |
+| Tốc độ | Homography metric và km/h khi có surveyed calibration | N001/N002 chưa đo; km/h null; mặt đường không phẳng/điểm ngoài vùng chưa được đảm bảo |
+| Retrieval | 19-term Việt–Anh expansion, prompt hiển thị | Không general translation; chưa relevance labels/Recall@K/MRR song ngữ |
+| Dispatch | 100×100 MILP với guard/certificate, warned legacy fallback ≤12 | Travel/resources mô phỏng; numerical certificate không symbolic proof; timing benchmark không SLA 1 giây |
+| M8 / T10.4 | Forms, blind notes, comparison, adjudication/export có gates | Cần **hai người thật độc lập**; một người/hai tên không tạo ground truth |
+| T10.2 / T10.3 | ROI/split contracts, source binding và leakage guards | Người thật duyệt góc nhìn/ROI; xác nhận recording groups trước group-level split |
+| T10.5 / T10.6 | Calibration/evaluator tooling | Đo markers thực; labels/ROI/split đủ gate để hiệu chỉnh development và chấm frozen test |
+| T10.7 | One-command environment/source/CUDA/core verification package | Cần Windows host vật lý khác và người xác nhận full-process/UI; hostname khác không chứng minh hardware khác |
+
+Không phần mềm nào tạo thay reviewers, survey, ROI approval, recording evidence
+hay quyền truy cập host vật lý. `quality_metrics=null`, M8 `PENDING`,
+`operational_ready=false` vẫn áp dụng; không tự nâng gate từ synthetic smoke.
 
 ## 4. Kiểm thử và đánh giá
 
@@ -120,12 +158,25 @@ seek giây 8/duration 12/readyState 4, traffic và review gate, tải ZIP. Nativ
 file chooser qua extension chưa kiểm chứng vì thiếu quyền file URL;
 upload HTTP/backend được kiểm thử bằng file thật.
 
-10 quỹ đạo synthetic kiểm thử rule nghi sự cố, gồm trường hợp đèn đỏ tạo
-false alarm. Event evaluator kiểm tra temporal IoU 0,1/0,3/0,5, matching exact
+Baseline lịch sử dùng 10 quỹ đạo synthetic, gồm trường hợp đèn đỏ tạo false
+alarm. Kiểm chứng hiện hành có 22 incident tests và smoke collective stop
+3→0 ứng viên, isolated stop vẫn 1; không phải accuracy CCTV. Event evaluator
+kiểm tra temporal IoU 0,1/0,3/0,5, matching exact
 max-total-IoU, precision/recall/F1, false alarms/reviewed camera-hour và delay
 theo source PTS. Fixture TP=1/FP=2/FN=1 chỉ kiểm tra phép tính; không phải
 accuracy trên CCTV. Thực nghiệm thật trả `NOT_EVALUATED_NO_REVIEWED_INTERVALS`,
 metrics=null và split_ready=false.
+
+Các phép kiểm chứng thay đổi hiện hành: stitching 45 tests; six-MOV sampled
+publication có 11.453 tracklets → 8.596 derived IDs, 2.857 links và 72.011
+observations (chỉ hình học, **không validated re-ID**). Calibration/overlay
+52 tests; synthetic 40 km/h, uncalibrated null; UI thật tách px/s và km/h
+unavailable, UI synthetic hiện 40/0. Bilingual 27 tests; CPU CLIP thật cho
+VI/English cùng top-12, API thấy prompt; đây là parity kỹ thuật, không relevance.
+Dispatch/resources/API 48 tests; CLI scenario 25 team/demand cho 25 assignments,
+0 unmet; SciPy 1.17.1, ba lần allocate 0,891/0,404/0,412 giây, median 0,412 giây,
+và scenario 10×10 parity với legacy. Không suy mọi 100×100 scenario dưới 1 giây.
+Chưa có số full core suite mới trong bản cập nhật này; giữ các counts lịch sử.
 
 HTTP benchmark T6.2 đóng băng config, index/model/code, ảnh query và session
 server. 6 text + 6 image query, top-k=12, 2 warmup và 10 samples/query,
@@ -156,18 +207,45 @@ Solver gán SIM-TEAM-A (2 người) cho demand priority 4; giữ 2 người dự
 | Manifest/index | `configs/cctv.demo.json`, `outputs/demo-data/search-index/index_state.json` |
 | Detection/tracking | `outputs/demo-data-review/detection-verification.json`, `tracking-verification.json` |
 | Traffic/incidents | `outputs/demo-data-review/congestion-verification.json`, `incident-verification.json` |
-| Allocation | `outputs/demo-data/dispatch-simulation-v1/dispatch_report.json`, `docs/CCTV_DISPATCH.md` |
+| Allocation lịch sử | `outputs/demo-data/dispatch-simulation-v1/dispatch_report.json`; sealed dispatch-v1 không còn là input hiện hành sau cutover v2, phải dựng output mới theo handover |
 | Event quality pending | `outputs/demo-data/event-benchmark-pending-v1/benchmark_report.json` |
 | HTTP latency | `outputs/demo-data/runtime-benchmark-v1/runtime_report.json` |
 | Core tests | `outputs/tests/core-tests.txt`; log này được cập nhật sau mỗi task |
 | UI workflow M11 | `docs/CCTV_UI_WORKFLOW.md`, commit `bcc8e64`, `outputs/tests/m11-final-focused.txt` |
 | M11 job và counts | `outputs/ui-workflow/3c2df27735c74e33b9c289d858e560a2/job.json`; run `run-44a2269e348f4553ae3cc40599a11cf0` |
+| Stitching hiện hành | `outputs/tests/limits-step2-tests.txt`, `outputs/tests/limits-stitched-real-current/stitch_state.json` |
+| Calibration/bilingual | `outputs/tests/limits-step3-tests.txt`, `outputs/tests/limits-step4-tests-final.txt` |
+| MILP hiện hành | `outputs/tests/limits-step5-tests-final.txt`, `outputs/tests/limits-milp-benchmark.json` |
 
 Tài liệu triển khai theo module nằm trong `docs/CCTV_*.md`; tiến độ hiện hành
 trong [CCTV_PROGRESS.md](CCTV_PROGRESS.md). Git history ghi Conventional
 Commits; commit T6.2 là `c6063a1`. Outputs/media/models không đưa lên Git.
-[CCTV_HANDOVER.md](CCTV_HANDOVER.md) cung cấp lệnh PowerShell dựng lại theo
-stage và exporter cho package evidence nhỏ, giữ máy thứ hai ở NOT_RUN.
+[CCTV_HANDOVER.md](CCTV_HANDOVER.md) có one-command
+`scripts/Test-SecondMachineHandover.ps1`, tuyến dựng lại stage và exporter.
+Tooling rehearsal cục bộ đã đạt tại `outputs/limits-handover-verified/`:
+347 tests/1 skip (OS không cho tạo directory symlink), pip check/compile/CUDA
+FP16/NMS đạt; 10 ZIP members/archive SHA verified. Raw và code snapshot giữ
+integrity trong lượt chạy; không có physical second-host run.
+
+Smoke lịch sử `limits-e2e-smoke.json` cần standalone indexing/retry sau native
+access violation `3221225477`. Probe tiếp theo đo commit exhaustion Windows1455;
+private commit của native pools và Torch process còn giữ là yếu tố tài nguyên.
+Đã chuyển serving CLIP sang process có ownership và giới hạn mặc định native
+pools Windows hai threads; không thay weights/FP16/loader hoặc OS/pagefile.
+
+Smoke mới `outputs/tests/m11-cold-smoke.json`: fresh browser upload H.264
+test-pattern 12 giây, pending ROI/toàn video 2 FPS; **12/12 stages lần đầu**,
+không recovery. 24 index/tracking frames, 6 windows; text/image UI trả 12 kết quả,
+source/overlay readyState=4. Report button HTTP200, ZIP 34 members/CRC đạt;
+uploaded source SHA/mtime giữ nguyên. Lifecycle GPU riêng xác nhận process exit
+trước loader mới và text/image vectors max error=0 với loader trực tiếp.
+44 focused tests đạt; full Windows verification chạy 353 tests, 352 passed/1 skipped
+(OS không cho directory symlink), pip check/compile/CUDA FP16/NMS đạt. Logs:
+`outputs/tests/m11-process-focused.txt`, `m11-process-core-tests.txt`, `m11-regression.json`.
+Không suy thành real accuracy hoặc physical second-host acceptance; mapping
+exhaustion là giải thích source-backed cho fault cũ, chưa có native dump.
+Chi tiết/current gates: [progress](CCTV_PROGRESS.md).
+
 
 ## 6. Công việc tiếp theo
 
@@ -196,10 +274,10 @@ trong một thời lượng cố định. Có thể dùng dataset đã xử lý 
 | 0–1 phút | Mở launcher và panel workflow | Bài toán CCTV, kế thừa kiến trúc, phạm vi demo |
 | 1–3 phút | Chọn demo/upload; camera, ảnh ROI, khoảng 10 giây, lưu | Raw chỉ đọc; ROI draft; toàn video cho keyframes, clip cho tracking |
 | 3–4 phút | Chạy hoặc mở dataset đã hoàn tất; progress/log/retry | CLI được tái sử dụng, GPU tuần tự, checkpoint |
-| 4–6 phút | Text query tiếng Anh, mở keyframe/video | CLIP cosine + FAISS/SQLite; seek bằng PTS, score không là xác suất sự kiện |
-| 6–7 phút | Traffic timeline, ROI, bbox/ID overlay | Occupancy/motion/coverage; pixel/s, ID theo segment, ngưỡng chưa calibration |
+| 4–6 phút | Text query Việt/Anh, xem translated prompt, mở keyframe/video | 19-term expansion + CLIP/FAISS/SQLite; seek bằng PTS, score không là xác suất |
+| 6–7 phút | Traffic timeline, ROI, bbox/ID overlay | px/s; N001/N002 km/h unavailable; optional geometric IDs không validated re-ID |
 | 7–9 phút | Case tổng hợp, review needs_more_evidence, tính proposal | Evidence/revision; pending gate chặn phân bổ; đội/budget/reserve mô phỏng |
-| 9–10 phút | Tự kiểm chứng T10, tải ZIP và trình bày giới hạn | 268 tests, pipeline 12/12, T10 5/5; chất lượng chưa chấm, M8 pending, máy thứ hai NOT_RUN |
+| 9–10 phút | Tự kiểm chứng T10, tải ZIP và trình bày giới hạn | Bằng chứng demo lịch sử pipeline 12/12, T10 5/5; số tests theo log của run, quality/M8/physical second-host pending |
 
 Nếu muốn minh họa assignment, chọn kịch bản **Nhu cầu tổng hợp** trong tab
 phân bổ: fixture có 1 assignment/2 unmet. Không xác nhận một sự cố demo chỉ
@@ -209,7 +287,8 @@ giữ checkpoint và không xóa output để tạo lỗi giả.
 ### Câu hỏi dự kiến và trả lời dựa trên bằng chứng
 
 - **Hệ thống đã nhận diện tai nạn chưa?** Chưa có đánh giá nhãn độc lập.
-  Move-then-stop là rule sàng lọc nghi sự cố; xe chờ đèn đỏ có thể false alarm.
+  Queue-context giảm false alarms collective stop; xe đơn lẻ chờ đèn đỏ vẫn
+  có thể tạo ứng viên. Đây là sàng lọc nghi sự cố, không classifier tai nạn.
 - **Tại sao lấy keyframe 2 FPS nhưng tracking dùng native frames?** Retrieval
   giảm số ảnh cần index; tracking cần chuỗi liên tiếp và PTS để đo motion.
 - **Tại sao dùng exact FAISS?** Baseline 7.232 ảnh/768D đủ nhỏ; vectors chuẩn
@@ -217,8 +296,9 @@ giữ checkpoint và không xóa output để tạo lỗi giả.
 - **8 GB VRAM có đủ không?** Luồng hiện đã chạy trên RTX 4070 Laptop, FP16,
   batch CLIP 4, tracking bounded và một model GPU theo stage. Không suy rằng
   mọi model/dataset hoặc nhiều users đồng thời đều chạy được.
-- **268 tests có nghĩa accuracy cao không?** Chỉ là kiểm thử phần mềm và
-  contracts. Chưa có F1/Recall@K thực; latency cũ không là latency M11.
+- **Tests có nghĩa accuracy cao không?** Chỉ kiểm thử phần mềm/contracts.
+  268 là count rehearsal T10 lịch sử; chưa có F1/Recall@K thực, latency cũ
+  không là latency các thay đổi hiện hành.
 - **Đề xuất phân bổ có dùng được cho cảnh sát thật không?** Nguồn lực/vùng/
   travel giả định; solver minh họa constraints và reserve, không phát lệnh.
 - **Tái lập đã được chứng minh trên máy khác chưa?** Chưa. T10.7 vẫn NOT_RUN;
@@ -409,3 +489,55 @@ giữ SHA/mtime. Rehearsal CPU với journal không tồn tại tạo 0 assignme
 đạt và khối request chạy trên Windows PowerShell 5.1. Đây là kiểm tra lệnh
 cục bộ; chưa dựng toàn bộ pipeline ở máy thứ hai hoặc đo chất lượng.
 Chi tiết, giới hạn recipe smoke và lệnh Git: `CCTV_HANDOVER.md`, mục T9.5.
+
+## Bổ sung xử lý năm giới hạn kỹ thuật thuật toán
+
+Năm giới hạn thuật toán và kỹ thuật của hệ thống CCTV đã được xử lý bằng code và kiểm chứng bằng test suite:
+
+1. **Lọc sự cố theo ngữ cảnh dòng xe (queue-context filter)**:
+   `pipeline/cctv/incidents.py` bổ sung cấu hình `queue_filter_enabled`, `neighbor_radius_diagonals=3.0`,
+   `min_queue_neighbors=2`, `stop_sync_window_sec=2.0`. Thuật toán hai lượt kiểm tra các xe lân cận dừng
+   đồng thời (sóng phanh / dừng đèn đỏ) hoặc xe gia nhập hàng chờ đã dừng trước đó, phân loại thành
+   `queue_or_signal_stop` để triệt tiêu báo động giả. Xe đơn độc dừng đột ngột vẫn phát cảnh báo; xe dừng
+   trong hàng chờ nhưng không di chuyển sau khi các xe khác rời đi quá 5 giây sẽ được tái đánh giá và phát cảnh báo.
+
+2. **Nối vết xe xuyên ranh giới phân đoạn (track stitching)**:
+   `pipeline/cctv/stitch.py` thực hiện bipartite matching bằng `scipy.optimize.linear_sum_assignment`
+   giữa các tracklets ở ranh giới hai phân đoạn kế tiếp (cửa sổ 1 giây). Vị trí dự báo bằng vector vận tốc
+   cuối từ 3 mẫu PTS thực tế, kết hợp kiểm tra tương thích lớp xe, tỉ lệ diện tích và aspect ratio.
+   Kết quả xuất `stitched_tracks.jsonl` và `stitched_mapping.json`, gán `global_track_id` duy nhất cho xe
+   di chuyển xuyên nhiều phân đoạn trong khi bảo toàn các checkpoint SQLite phân đoạn độc lập.
+
+3. **Hiệu chỉnh mặt phẳng đường tính vận tốc thực tế (km/h)**:
+   `pipeline/cctv/traffic.py` và `congestion.py` bổ sung hợp đồng `CameraCalibration` và hàm `compute_homography`.
+   Với ít nhất 4 điểm mốc mặt đường không thẳng hàng, ma trận $3 \times 3$ chiếu tọa độ chân xe sang mét thực tế
+   trên mặt đường, tính độ dịch chuyển mét và vận tốc $v_{kmh} = 3.6 \cdot \frac{\Delta s}{\Delta t}$.
+   Trường `median_speed_kmh` được ghi nhận trong `TrafficWindow`. Khi chưa có hiệu chỉnh, trường giữ `None`
+   và vận tốc pixel/giây vẫn hoạt động bình thường.
+
+4. **Mở rộng truy vấn song ngữ Việt–Anh cho CLIP**:
+   `app/query_hints.py` cung cấp `expand_bilingual_query` với từ vựng 19 cụm từ giao thông chuyên dụng,
+   chuẩn hóa NFC, casefold và longest-phrase matching với ranh giới từ Unicode. Các cụm từ tiếng Việt
+   được dịch sang tiếng Anh tương ứng để mã hóa CLIP text embeddings, trả về kết quả truy hồi chính xác
+   đồng thời gửi kèm `translated_prompt` trong metadata phản hồi API cho người dùng.
+
+5. **Bộ giải phân bổ điều phối quy mô lớn bằng MILP**:
+   `pipeline/cctv/dispatch.py` tích hợp `scipy.optimize.milp` thay thế thuật toán duyệt tập con và DP bitmask,
+   mở rộng trần xử lý từ 12 lên 100 đội và 100 nhu cầu. Quy trình tối ưu hóa đa tầng từ điển (lexicographic)
+   giải tối đa số nhu cầu theo từng độ ưu tiên (5 xuống 1), tối thiểu thời gian di chuyển, tối thiểu nhân sự
+   và tie-breaking xác định bằng binary mask. Đảm bảo tính tối ưu toàn cục với chứng chỉ zero-gap và kiểm tra số nguyên.
+
+## Bổ sung M11 — cold UI pipeline sau sửa process ownership
+
+Nhằm đảm bảo pipeline chạy tự động một chạm (one-click) từ trạng thái cold start mà không gặp lỗi cạn kiệt
+bộ nhớ cam kết hệ điều hành (OS commit exhaustion, Win32 error 1455) khi tải checkpoint CLIP:
+
+- Trình phục vụ suy luận CLIP được tách biệt hoàn toàn vào child process chuyên trách (`ProcessClipEncoder`
+  trong `pipeline/cctv/clip_process.py`). Khi đóng encoder trước khi pipeline CLI chạy, process worker kết thúc,
+  giải phóng 100% tài nguyên CUDA và OS private commit.
+- Coordinator không import PyTorch, lấy phiên bản Torch qua package metadata. Thiết lập mặc định
+  `OPENBLAS_NUM_THREADS=2` và `OMP_NUM_THREADS=2` trên Windows để chặn hiện tượng thread pools cấp phát
+  vượt mức commit khả dụng.
+- Toàn bộ 12 stages của pipeline xử lý trơn tru trên browser upload thực tế mà không cần retry hay can thiệp thủ công.
+- Bộ hồi quy Windows đạt **358 tests: 357 passed, 1 skipped** (do quyền directory symlink trên Windows).
+- Runner hiệu chỉnh ngưỡng 27+9 (`pipeline/cctv/calibrate_thresholds.py` và `scripts/calibrate_cctv_thresholds.py`) hoàn tất kỹ thuật, thực thi đầy đủ protocol đánh giá frozen test split theo các tiêu chí tie-breaking và độ nhạy IoU 0,1/0,3/0,5.

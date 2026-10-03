@@ -10,6 +10,7 @@ from pydantic import ValidationError
 
 from pipeline.cctv.manifest import load_manifest
 from pipeline.cctv.traffic import CameraROI, TrafficConfig, load_config, validate_record
+from pipeline.cctv.traffic import CameraCalibration, CalibrationConfig
 
 
 class TrafficTests(unittest.TestCase):
@@ -189,6 +190,57 @@ class TrafficTests(unittest.TestCase):
             self.parse({**self.frame, "kind": "accident"})
         with self.assertRaises(ValidationError):
             self.parse({**self.frame, "schema_version": 2})
+
+
+class CalibrationTests(unittest.TestCase):
+    def payload(self):
+        return {
+            "camera_id": "N001",
+            "points": [
+                {"image_point": image, "ground_point_meters": ground}
+                for image, ground in zip(
+                    [[0, 0], [1, 0], [1, 1], [0, 1]],
+                    [[-10, -20], [90, -20], [90, 80], [-10, 80]],
+                )
+            ],
+            "roi_polygon": [[0, 0], [1, 0], [1, 1], [0, 1]],
+        }
+
+    def test_meter_coordinates_are_finite_not_normalized(self):
+        value = CameraCalibration.model_validate_json(json.dumps(self.payload()))
+        self.assertEqual(value.points[0].ground_point_meters, (-10.0, -20.0))
+        self.assertEqual(value.points[2].ground_point_meters, (90.0, 80.0))
+        self.assertIsNone(value.reviewer)
+
+    def test_invalid_geometry_and_review_metadata(self):
+        for mutation in ("duplicate", "collinear", "nearcollinear", "nonfinite", "review"):
+            value = self.payload()
+            if mutation == "duplicate":
+                value["points"][1] = value["points"][0]
+            elif mutation in ("collinear", "nearcollinear"):
+                for i, pair in enumerate(value["points"]):
+                    pair["image_point"] = [i / 4, i / 4 + (1e-9 if i == 2 and mutation == "nearcollinear" else 0)]
+            elif mutation == "nonfinite":
+                value["points"][0]["ground_point_meters"] = [float("inf"), 0]
+            else:
+                value.update(reviewer="reviewer", reviewed_at="2026-10-01T00:00:00")
+            with self.subTest(mutation=mutation), self.assertRaises(ValueError):
+                CameraCalibration.model_validate_json(json.dumps(value))
+
+    def test_pending_camera_binding_rejects_unknown_and_duplicate_ids(self):
+        manifest = load_manifest(Path(__file__).resolve().parent / "configs/cctv.demo.json", require_files=False)
+        # Use the repository's canonical camera IDs, without claiming survey completion.
+        names = [str(c["camera_id"]) for c in manifest.cameras]
+        valid = CalibrationConfig.model_validate_json(json.dumps(
+            {"schema_version": 1, "calibrations": [], "pending_cameras": names}
+        ))
+        valid.bind(manifest)
+        with self.assertRaises(ValueError):
+            CalibrationConfig.model_validate_json(json.dumps(
+                {"schema_version": 1, "calibrations": [], "pending_cameras": names + names[:1]}
+            ))
+        with self.assertRaises(ValueError):
+            valid.model_copy(update={"pending_cameras": ("UNKNOWN",)}).bind(manifest)
 
 
 if __name__ == "__main__":

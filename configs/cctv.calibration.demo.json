@@ -1,0 +1,5 @@
+{
+  "schema_version": 1,
+  "calibrations": [],
+  "pending_cameras": ["N001", "N002"]
+}

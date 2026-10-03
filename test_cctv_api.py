@@ -17,7 +17,7 @@ from test_cctv_index import TinyEncoder
 
 
 class ApiEncoder(TinyEncoder):
-    """Readiness/text vector matches the synthetic red frame; never loads CLIP."""
+    """Synthetic domain prompts select RGB frames; never measures CLIP recall."""
 
     loaded = 0
     closed = 0
@@ -27,6 +27,10 @@ class ApiEncoder(TinyEncoder):
         type(self).loaded += 1
 
     def text(self, query: str) -> np.ndarray:
+        if query == "motorcycle motorbike night nighttime dark":
+            return np.asarray([[0, 1, 0]], dtype=np.float32)
+        if query == "traffic jam congestion slow traffic road intersection crossroad":
+            return np.asarray([[0, 0, 1]], dtype=np.float32)
         return np.asarray([[1, 0, 0]], dtype=np.float32)
 
     def close(self) -> None:
@@ -105,10 +109,62 @@ class CCTVApiTests(unittest.TestCase):
             response = client.post("/cctv/search/image", content=stream.getvalue())
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["results"][0]["file"], "N001-V001/001.jpg")
+        self.assertNotIn("translated_prompt", response.json())
+        self.assertNotIn("translated_terms", response.json())
         self.assertEqual(ApiEncoder.loaded, 1)
         self.assertEqual(digest(self.fixture.output / "meta.db"), before)
         self.stack.close()
         self.assertEqual(ApiEncoder.closed, 1)
+
+    def test_bilingual_queries_rank_like_english_with_distractors(self) -> None:
+        client = self.client()
+        before = digest(self.fixture.output / "meta.db")
+        cases = (
+            (
+                "xe máy ban đêm",
+                "motorcycle motorbike night nighttime dark",
+                ["xe máy", "ban đêm"],
+                "N001-V001/002.jpg",
+            ),
+            (
+                "tắc đường ngã tư",
+                "traffic jam congestion slow traffic road intersection crossroad",
+                ["tắc đường", "ngã tư"],
+                "N001-V001/003.jpg",
+            ),
+        )
+        for vietnamese, english, terms, expected in cases:
+            with self.subTest(query=vietnamese):
+                translated = client.get(
+                    "/cctv/search", params={"query": vietnamese, "top_k": 4}
+                )
+                direct = client.get(
+                    "/cctv/search", params={"query": english, "top_k": 4}
+                )
+                self.assertEqual(translated.status_code, 200)
+                self.assertEqual(direct.status_code, 200)
+                actual, reference = translated.json(), direct.json()
+                self.assertEqual(actual["translated_prompt"], english)
+                self.assertEqual(actual["translated_terms"], terms)
+                self.assertEqual(actual["results"], reference["results"])
+                self.assertEqual(actual["total"], 4)
+                self.assertEqual(actual["results"][0]["file"], expected)
+                self.assertGreater(
+                    actual["results"][0]["score"], actual["results"][1]["score"]
+                )
+                self.assertIsNone(reference["translated_prompt"])
+                self.assertEqual(reference["translated_terms"], [])
+        self.assertEqual(ApiEncoder.loaded, 1)
+        self.assertEqual(digest(self.fixture.output / "meta.db"), before)
+
+    def test_unmatched_queries_have_no_translation_metadata(self) -> None:
+        client = self.client()
+        for query in ("red traffic", "mây trên cao"):
+            with self.subTest(query=query):
+                response = client.get("/cctv/search", params={"query": query})
+                self.assertEqual(response.status_code, 200)
+                self.assertIsNone(response.json()["translated_prompt"])
+                self.assertEqual(response.json()["translated_terms"], [])
 
     def test_video_supports_ranges_and_unregistered_assets_are_denied(self) -> None:
         client = self.client()

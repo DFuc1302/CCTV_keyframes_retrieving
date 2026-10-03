@@ -74,7 +74,7 @@ class DispatchStore:
             state.get("status") != "complete"
             or state.get("report_sha256") != before[files[4]]
             or report.get("signature") != signature
-            or signature.get("pipeline") != "cctv-dispatch-v1"
+            or signature.get("pipeline") != "cctv-dispatch-v2"
             or report.get("schema_version") != 1
         ):
             raise ValueError("Dispatch publication changed or incomplete")

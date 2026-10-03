@@ -10,7 +10,7 @@ import test_cctv_api as api_fixture
 import test_cctv_track as track_fixture
 import test_cctv_traffic_api as traffic_fixture
 from app.cctv import create_app
-from pipeline.cctv import tracking_overlay
+from pipeline.cctv import stitch, tracking_overlay
 from pipeline.cctv.ingest import digest, save_json
 
 
@@ -26,7 +26,7 @@ class OverlayApiTests(unittest.TestCase):
         ):
             tracking_overlay.run(self.track.manifest, self.track.output, self.output)
 
-    def client(self, output=None):
+    def client(self, output=None, stitched_dir=None):
         api = self.fixture.api
         app = create_app(
             api.fixture.output,
@@ -39,6 +39,7 @@ class OverlayApiTests(unittest.TestCase):
             roi_preview_dir=self.fixture.roi,
             overlay_dir=output or self.output,
             overlay_manifest=self.track.manifest,
+            stitched_dir=stitched_dir,
         )
         return api.stack.enter_context(TestClient(app))
 
@@ -68,6 +69,41 @@ class OverlayApiTests(unittest.TestCase):
         self.assertNotIn(str(self.track.root), json.dumps(status))
         self.assertEqual(before, {p: (digest(p), p.stat().st_mtime_ns) for p in before})
         self.assertEqual(api_fixture.ApiEncoder.loaded, 1)
+
+    def test_derived_overlay_serving_and_mapping_edit_invalidation(self):
+        mapping_dir = self.track.root / "stitched"
+        stitch.stitch_tracks(self.track.output, mapping_dir)
+        output = self.track.root / "global-overlay"
+        with patch.object(
+            tracking_overlay, "decoded_frames", side_effect=track_fixture.fake_reader
+        ):
+            tracking_overlay.run(
+                self.track.manifest, self.track.output, output,
+                stitched_dir=mapping_dir,
+            )
+        # Extra input paths cannot authorize a derived mapping without explicit config.
+        self.assertFalse(
+            self.client(output).get("/cctv/traffic/overlays").json()["available"]
+        )
+        client = self.client(output, mapping_dir)
+        catalog = client.get("/cctv/traffic/overlays").json()
+        self.assertTrue(catalog["available"])
+        self.assertEqual(
+            catalog["videos"][0]["id_scope"],
+            "derived_global_track_id/geometric_hypothesis",
+        )
+        row = client.get("/cctv/traffic/windows/N001-V001").json()["rows"][0]
+        evidence = row["tracking_overlay"]
+        self.assertEqual(evidence["id_scope"], catalog["videos"][0]["id_scope"])
+        self.assertEqual(
+            client.get(evidence["video_url"], headers={"Range": "bytes=0-15"}).status_code,
+            206,
+        )
+        path = mapping_dir / "stitched_mapping.json"
+        path.write_text(path.read_text() + "\n", encoding="utf-8")
+        self.assertFalse(client.get("/cctv/traffic/overlays").json()["available"])
+        self.assertEqual(client.get(evidence["video_url"]).status_code, 503)
+        self.assertTrue(client.get("/cctv/traffic").json()["available"])
 
     def test_missing_overlay_does_not_disable_traffic_or_retrieval(self):
         client = self.client(self.track.root / "missing")

@@ -43,6 +43,10 @@ class IncidentConfig(Contract):
     confidence_min: Unit
     box_area_min: Annotated[float, Field(gt=0, le=1)]
     max_box_scale_ratio: Annotated[float, Field(gt=1, le=4)]
+    queue_filter_enabled: bool = True
+    neighbor_radius_diagonals: Annotated[float, Field(gt=0)] = 3.0
+    min_queue_neighbors: Annotated[int, Field(gt=0, le=100)] = 2
+    stop_sync_window_sec: Annotated[float, Field(gt=0)] = 2.0
 
     @model_validator(mode="after")
     def ordered(self):
@@ -106,7 +110,7 @@ def screen_video(
     synthetic: bool = False,
     sample_interval: float = 0.0,
 ) -> list[IncidentEvent]:
-    """One candidate per continuous stop, reset on missing/weak/outside observations."""
+    """Two-pass queue-aware screening; at most one event per continuous stop."""
     if roi.polygon is None:
         raise ValueError("Incident screening requires ROI geometry")
     contour = np.asarray(roi.polygon, dtype=np.float32)
@@ -138,6 +142,7 @@ def screen_video(
             ):
                 states.clear()
         active = {}
+        # Finish every motion update before inspecting contemporaneous queue context.
         for obs in frame.observations:
             box = obs.detection.bbox
             x1, y1, x2, y2 = box
@@ -154,12 +159,17 @@ def screen_video(
             old = states.get(key)
             current = dict(
                 center=center,
+                bottom_center=((x1 + x2) / 2 * frame.width, y2 * frame.height),
                 diagonal=diagonal,
                 frame=frame,
                 moving_start=None,
                 moving_sec=0.0,
                 stop_start=None,
                 stationary_sec=0.0,
+                travel_vector=(0.0, 0.0),
+                queue_neighbors=frozenset(),
+                queue_suppressed=False,
+                neighbors_absent_since=None,
                 emitted=False,
             )
             if (
@@ -183,63 +193,134 @@ def screen_video(
                         loc.timestamp_sec
                         - current["moving_start"].locator.timestamp_sec
                     )
-                elif (
-                    speed <= config.stationary_max_body_lengths_per_sec
-                    and old["moving_sec"] >= config.moving_duration_sec
-                ):
+                    displacement = (
+                        center[0] - old["center"][0],
+                        center[1] - old["center"][1],
+                    )
+                    prior_vector = (
+                        old["travel_vector"]
+                        if old["stop_start"] is None
+                        else (0.0, 0.0)
+                    )
+                    current["travel_vector"] = (
+                        prior_vector[0] + displacement[0],
+                        prior_vector[1] + displacement[1],
+                    )
+                elif speed <= config.stationary_max_body_lengths_per_sec:
                     current.update(
                         moving_start=old["moving_start"],
                         moving_sec=old["moving_sec"],
                         stop_start=old["stop_start"] or old["frame"],
                         emitted=old["emitted"],
+                        travel_vector=old["travel_vector"],
+                        queue_neighbors=old["queue_neighbors"],
+                        queue_suppressed=old["queue_suppressed"],
+                        neighbors_absent_since=old["neighbors_absent_since"],
                     )
                     current["stationary_sec"] = (
                         loc.timestamp_sec - current["stop_start"].locator.timestamp_sec
                     )
-                    if (
-                        current["stationary_sec"] >= config.stationary_duration_sec
-                        and not current["emitted"]
-                    ):
-                        onset = current["moving_start"]
-                        value = dict(
-                            schema_version=2,
-                            kind="event",
-                            event_type="suspected_road_incident",
-                            basis="temporal_rule",
-                            rule="move_then_stop",
-                            run_id=frame.run_id,
-                            camera_id=loc.camera_id,
-                            video_id=loc.video_id,
-                            segment_id=frame.segment_id,
-                            track_id=obs.track_id,
-                            start_sec=onset.locator.timestamp_sec,
-                            end_sec=loc.timestamp_sec
-                            + frame.time_base[0] / frame.time_base[1],
-                            evidence=[
-                                dict(
-                                    locator=f.locator.model_dump(mode="json"),
-                                    segment_id=f.segment_id,
-                                )
-                                for f in (onset, frame)
-                            ],
-                            provenance_sha256=provenance,
-                            moving_sec=current["moving_sec"],
-                            stationary_sec=current["stationary_sec"],
-                            initial_status="pending_review",
-                            synthetic_event=synthetic,
-                            demo_only=synthetic or roi.status != "approved",
-                            thresholds_calibrated=False,
-                            operational_ready=False,
-                            rationale="Uncalibrated move-then-stop hypothesis; traffic lights, queues and tracking errors can trigger it. Review video; no accident diagnosis.",
-                        )
-                        value["event_id"] = "event-" + checksum(value)[:24]
-                        result.append(
-                            IncidentEvent.model_validate_json(canonical(value))
-                        )
-                        if len(result) > MAX_RECORDS:
-                            raise ValueError("Too many incident candidates")
-                        current["emitted"] = True
             active[key] = current
+        # Motion fields are immutable in this pass, including for suppressed tracks.
+        # Sorting also makes event order independent of observation order.
+        for key in sorted(active):
+            current = active[key]
+            if (
+                current["moving_sec"] < config.moving_duration_sec
+                or current["stationary_sec"] < config.stationary_duration_sec
+                or current["emitted"]
+            ):
+                continue
+            if config.queue_filter_enabled:
+                neighbors = set()
+                known_neighbor_nearby = False
+                vector = current["travel_vector"]
+                vector_length = math.hypot(*vector)
+                for neighbor_key, neighbor in active.items():
+                    if neighbor_key == key or (
+                        math.dist(current["bottom_center"], neighbor["bottom_center"])
+                        / ((current["diagonal"] + neighbor["diagonal"]) / 2)
+                        > config.neighbor_radius_diagonals
+                    ):
+                        continue
+                    # A previously supporting vehicle has not departed just because
+                    # it starts moving; it must actually leave the neighborhood.
+                    if neighbor_key in current["queue_neighbors"]:
+                        known_neighbor_nearby = True
+                    if neighbor["stop_start"] is None:
+                        continue
+                    other_vector = neighbor["travel_vector"]
+                    other_length = math.hypot(*other_vector)
+                    if (
+                        not vector_length
+                        or not other_length
+                        or (
+                            vector[0] * other_vector[0]
+                            + vector[1] * other_vector[1]
+                        )
+                        < 0.5 * vector_length * other_length
+                    ):
+                        continue
+                    # Compatible prior travel (within 60 degrees) excludes parked
+                    # vehicles and cross/opposing traffic from queue evidence.
+                    synchronized = (
+                        abs(
+                            current["stop_start"].locator.timestamp_sec
+                            - neighbor["stop_start"].locator.timestamp_sec
+                        )
+                        <= config.stop_sync_window_sec
+                    )
+                    if synchronized or neighbor["stationary_sec"] >= 1.0:
+                        neighbors.add(neighbor_key)
+                if len(neighbors) >= config.min_queue_neighbors:
+                    current["queue_suppressed"] = True
+                if current["queue_suppressed"]:
+                    current["queue_neighbors"] = current["queue_neighbors"].union(
+                        neighbors
+                    )
+                    if known_neighbor_nearby or neighbors:
+                        current["neighbors_absent_since"] = None
+                        continue
+                    if current["neighbors_absent_since"] is None:
+                        current["neighbors_absent_since"] = loc.timestamp_sec
+                    if loc.timestamp_sec - current["neighbors_absent_since"] <= 5.0:
+                        continue
+            onset = current["moving_start"]
+            value = dict(
+                schema_version=2,
+                kind="event",
+                event_type="suspected_road_incident",
+                basis="temporal_rule",
+                rule="move_then_stop",
+                run_id=frame.run_id,
+                camera_id=loc.camera_id,
+                video_id=loc.video_id,
+                segment_id=frame.segment_id,
+                track_id=key[-1],
+                start_sec=onset.locator.timestamp_sec,
+                end_sec=loc.timestamp_sec + frame.time_base[0] / frame.time_base[1],
+                evidence=[
+                    dict(
+                        locator=f.locator.model_dump(mode="json"),
+                        segment_id=f.segment_id,
+                    )
+                    for f in (onset, frame)
+                ],
+                provenance_sha256=provenance,
+                moving_sec=current["moving_sec"],
+                stationary_sec=current["stationary_sec"],
+                initial_status="pending_review",
+                synthetic_event=synthetic,
+                demo_only=synthetic or roi.status != "approved",
+                thresholds_calibrated=False,
+                operational_ready=False,
+                rationale="Uncalibrated move-then-stop hypothesis with image-space queue context; isolated signal stops and tracking errors can still trigger it. Review video; no accident diagnosis.",
+            )
+            value["event_id"] = "event-" + checksum(value)[:24]
+            result.append(IncidentEvent.model_validate_json(canonical(value)))
+            if len(result) > MAX_RECORDS:
+                raise ValueError("Too many incident candidates")
+            current["emitted"] = True
         states = active
         previous = frame
     return result

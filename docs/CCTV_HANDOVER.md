@@ -4,8 +4,8 @@
 
 Code/config/docs/tests nằm trên GitHub. Video, keyframes, model cache, index
 và reports nằm ngoài Git. Báo cáo [CCTV_PROJECT_REPORT.md](CCTV_PROJECT_REPORT.md)
-tổng hợp kết quả kỹ thuật và giới hạn đến M11. Máy thứ hai **chưa chạy**;
-checklist dưới đây không phải bằng chứng đã nghiệm thu.
+tổng hợp kết quả kỹ thuật hiện hành và bằng chứng lịch sử. Máy Windows vật lý
+thứ hai **chưa chạy**; checklist/tooling không phải bằng chứng đã nghiệm thu.
 
 `scripts/export_cctv_handover.py` đọc ba publications đã hoàn tất: HTTP runtime
 benchmark, event benchmark và dispatch simulation. Kiểm tra report SHA256,
@@ -14,7 +14,26 @@ máy thứ hai. Không nạp model, đọc nội dung video, chạy inference ho
 Package chỉ xác minh các reports đã seal, không chạy lại các pipeline tạo chúng.
 Status/lỗi/null metrics được giữ nguyên, không đổi thành kết quả đạt.
 
+Runtime hiện hành: serving CLIP thuộc process riêng, close chờ process thoát
+trước stage GPU; coordinator không import Torch. Windows đặt mặc định native
+BLAS/OpenMP hai threads trước import, giữ overrides của operator. Không đổi
+pagefile hoặc dùng CPU fallback. Cold local UI smoke mới đạt 12/12 lần đầu
+trên test-pattern 12 giây (`outputs/tests/m11-cold-smoke.json`), không thay
+nghiệm thu physical second host. Trên máy thứ hai vẫn chạy full-process/UI
+checklist với output fresh; khi thiếu system commit, ghi lỗi thay vì đánh dấu đạt.
+
 ## Xuất gói bằng chứng trên máy hiện tại
+
+**Cutover hiện hành:** pipeline dispatch là `cctv-dispatch-v2`. Các publications
+`dispatch-simulation-v1`, `dispatch-events-empty-v1`, `dispatch-review-gate-v1`
+và packages handover đã seal bên dưới là lịch sử; không sửa checkpoint/report
+để chúng trông như v2. Regenerate dispatch vào folder mới theo các lệnh dưới;
+demo store hiện hành mặc định đọc ba snapshot **v2** này. Giữ request/review
+journal hiện có. Đường dẫn v2 là output sẽ tạo, **không** claim đã tồn tại.
+Nếu folder có recipe cũ/khác, chọn output fresh khác và bind store tương ứng
+qua `create_app(dispatch_store=...)`; scripts start/smoke mặc định dùng tên v2
+đã ghi dưới đây, không có tham số Store override.
+Runtime benchmarks lịch sử vẫn được giữ nguyên, không biến thành đo latency mới.
 
 ```powershell
 Set-Location 'D:\Project ExploreCS\CCTV_keyframes_retrieving'
@@ -22,8 +41,8 @@ Set-Location 'D:\Project ExploreCS\CCTV_keyframes_retrieving'
   --manifest configs\cctv.demo.json `
   --runtime-dir outputs\demo-data\runtime-benchmark-v1 `
   --event-dir outputs\demo-data\event-benchmark-pending-v1 `
-  --dispatch-dir outputs\demo-data\dispatch-simulation-v1 `
-  --output outputs\demo-data\handover-v1
+  --dispatch-dir outputs\demo-data\dispatch-simulation-v2 `
+  --output outputs\demo-data\handover-current-v2
 ```
 
 Output gồm `handover_report.json`, `second-machine.pending.json`,
@@ -31,6 +50,66 @@ Output gồm `handover_report.json`, `second-machine.pending.json`,
 bytes/mtime. Nếu input/exporter thay đổi dùng output mới. SHA phát hiện sửa
 vô tình, không thay thế chữ ký bảo mật. Template luôn NOT_RUN/pending;
 khi nghiệm thu thật, ghi kết quả vào **bản sao ngoài package đã seal**.
+
+## Kiểm chứng kỹ thuật bằng một lệnh
+
+Sau setup môi trường, chuyển bản sao raw được phép và **inventory từ máy gốc**
+sang máy nhận. Dùng `inventory.json` đã seal của tuyến T10.1, ví dụ
+`outputs/evaluation/demo-inventory-v2/inventory.json`; giữ checksum file
+inventory khi transfer. Reference cần `videos` với `video_id`, `camera_id`,
+`bytes`, `sha256`; không tạo inventory “reference” từ máy nhận để tự so với nó.
+Ghi hostname thật trên máy gốc (`hostname`) và pinned commit origin
+(`git rev-parse HEAD`) trước khi transfer. Máy nhận chỉnh raw_root bằng
+manifest mới nếu cần, không chỉnh reference inventory hoặc raw.
+
+Chạy từ repo sau khi setup, ví dụ reference đã chuyển vào folder riêng:
+
+```powershell
+.\scripts\Test-SecondMachineHandover.ps1 `
+  -ReferenceInventory 'D:\handover-inputs\inventory.json' `
+  -OriginMachine 'ORIGIN-WINDOWS-HOST' `
+  -Manifest configs\cctv.demo.json
+if ($LASTEXITCODE -ne 0) { throw 'Technical handover verification failed; retain its package/log.' }
+```
+
+Thay `ORIGIN-WINDOWS-HOST` bằng hostname đã ghi trên origin.
+`-ReferenceInventory` và `-OriginMachine` bắt buộc; `-Manifest` mặc định
+`configs/cctv.demo.json`. Tùy chọn `-ExpectedCommit '<full-origin-HEAD-SHA>'`
+để ràng buộc **full Git HEAD SHA**; không có thì ghi snapshot thực, không tự
+claim commit parity. `-Output '<fresh-nonexistent-output-folder>'` tùy chọn;
+mặc định tạo `outputs/second-machine-<UTCtimestamp>` mới. Output phải chưa tồn tại;
+không dùng lại sealed/review/raw folders.
+
+Command thu environment/code snapshot, đối chiếu source identity/size/SHA256
+với inventory origin trước/sau, gọi **`scripts/Test-Windows.ps1` thật**:
+pip check, runtime CUDA FP16/NMS, compile và full core suite. Chỉ evidence vừa
+được tạo/cập nhật trong lần chạy được **copy**: `outputs/tests/core-tests.txt`
+và `outputs/preflight/runtime-checks.json` vào `runtime-evidence/` trong package
+fresh, không dùng sealed publications làm nơi ghi log. Output gồm:
+
+- `second-machine-report.json`, `environment.json`, `verification.log`;
+- `source-before.json`, `source-after.json`, `code-before.json`, `code-after.json`;
+- bản sao `reference-inventory.json`, `checksums.json`;
+- `second-machine-evidence.zip` và `archive-checksum.json`.
+
+Không chứa raw/weights hay tự sửa review/calibration forms.
+Đây là kiểm chứng kỹ thuật của pipeline/contracts và CUDA runtime, không
+tự chạy/duyệt toàn bộ inference+UI hoặc tạo quality benchmark mới.
+
+Local tooling rehearsal đã đạt tại `outputs/handover-verified-current/` (và rehearsal lịch sử `outputs/limits-handover-verified/`):
+**358 tests/1 skip** (directory symlink không được OS cho phép), pip check,
+compile, CUDA FP16/NMS đạt; 10 ZIP members và archive SHA khớp. Sáu raw,
+manifest/reference và working-copy code giữ integrity trong lượt chạy.
+Đây là local rehearsal, không second-machine run. Output phải nằm ngoài
+`outputs/tests` và `outputs/preflight`, là nơi runtime probes ghi evidence.
+Same-host rehearsal giữ `second_machine_status=NOT_RUN`. Khác hostname chỉ
+ghi `host_identity_differs=true`; technical pass giữ
+`second_machine_status=PENDING_HUMAN_VERIFICATION`, không chứng minh hardware
+vật lý độc lập (hostname có thể đổi/ảo hóa). Luôn
+`physical_host_verified=false`, `operational_ready=false`, `quality_metrics=null`,
+M8 `PENDING`. Người thật xác nhận host vật lý khác và checklist full-process/UI
+ở phần sau; không sửa technical report đã xuất để giả autoapproval.
+
 
 ## Chuẩn bị máy thứ hai
 
@@ -41,7 +120,8 @@ Sau setup môi trường bên dưới, người dùng demo xử lý dữ liệu 
 stage trong tài liệu này là tuyến tái lập kỹ thuật tùy chọn, không bắt buộc
 người dùng UI phải chạy từng script.
 
-1. Ghi pinned commit (M11 là `bcc8e64`), máy/GPU/driver, Python/PowerShell,
+1. Ghi pinned commit **hiện hành đã chọn** (M11 `bcc8e64` chỉ là lịch sử),
+   máy/GPU/driver, Python/PowerShell,
    package versions và log setup/tests. Không sao chép `.venv` máy đầu.
 2. Dùng bản sao demo được phép chuyển; đối chiếu SHA nguồn giữa hai máy.
    Mở launcher, chọn demo/upload và dùng cùng ROI draft/khoảng tracking.
@@ -148,7 +228,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Incident rule failed.' }
 & $python -m pipeline.cctv.dispatch --manifest configs\cctv.demo.json `
   --resources configs\cctv.resources.simulation.json `
   --demands configs\cctv.demands.simulation.json `
-  --output outputs\demo-data\dispatch-simulation-v1
+  --output outputs\demo-data\dispatch-simulation-v2
 if ($LASTEXITCODE -ne 0) { throw 'Dispatch simulation failed.' }
 & $python -m pipeline.cctv.benchmark_events --manifest configs\cctv.demo.json `
   --annotations configs\cctv.annotations.pending.json `
@@ -196,7 +276,7 @@ Dispatch simulation đã tạo ở trên. Thêm snapshot từ package incidents
   --demands configs\cctv.demands.events.json `
   --events-dir outputs\demo-data\incidents-draft-v1 `
   --review-dir outputs\demo-data\incident-reviews-v1 `
-  --output outputs\demo-data\dispatch-events-empty-v1
+  --output outputs\demo-data\dispatch-events-empty-v2
 if ($LASTEXITCODE -ne 0) { throw 'Incident dispatch snapshot failed.' }
 ```
 
@@ -239,7 +319,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Synthetic dispatch request failed.' }
   --demands outputs\demo-data-review\dispatch-event-request.json `
   --events-dir outputs\demo-data\events-demo-v1 `
   --review-dir outputs\demo-data\events-demo-reviews-v1 `
-  --output outputs\demo-data\dispatch-review-gate-v1
+  --output outputs\demo-data\dispatch-review-gate-v2
 if ($LASTEXITCODE -ne 0) { throw 'Synthetic review-gate snapshot failed.' }
 ```
 
@@ -249,7 +329,7 @@ có, không replay lịch sử để làm giống số revision. Thay đổi jou
 request làm snapshot cũ stale; dùng output recipe mới và cấu hình store phù
 hợp thay vì sửa checkpoint. CLI review tùy chọn xem `CCTV_EVENTS.md`.
 
-Kiểm tra T9.5 trên máy hiện tại: sáu CLI lệnh ROI/events/overlay/dispatch
+Kiểm tra **lịch sử** T9.5 trên máy hiện tại (trước MILP cutover): sáu CLI lệnh ROI/events/overlay/dispatch
 resume đạt; 76 protected files giữ SHA/mtime (xem số đếm thực trong
 `outputs/demo-data-review/handover-steps-verification.json`). Rehearsal
 CPU riêng với journal không tồn tại có 0 assignments, 1 unmet demand ở
@@ -264,6 +344,17 @@ pending; journal xuất hiện trong lúc check làm run thất bại. Vẫn c�
 index/previews/traffic/ROI/events/dispatch/request/overlay theo các stage
 trên. Không tự tạo review để vượt smoke hoặc dùng kết quả cục bộ thay bằng
 nghiệm thu máy thứ hai.
+
+Sau cutover MILP, các counts/resume/hash T9.5 trên không xác nhận snapshot v2.
+Regenerate cả ba dispatch outputs fresh theo tên v2 bên dưới trước khi dùng
+scripts start/smoke mặc định; không dùng sealed v1 chỉ để vượt asset smoke.
+Full-process workflow tạo publication mới riêng trong run, không rewrite v1.
+Queue-context vẫn không loại xe đơn lẻ chờ đèn đỏ; stitching chỉ hình học,
+không visual re-ID. km/h chỉ khi có surveyed calibration, N001/N002 pending/null;
+19-term expansion không general translation. 100×100 MILP có precision guard
+và numerical certificate, warned legacy fallback chỉ khi cả team/demand ≤12;
+benchmark 25×25 không bảo đảm thời gian mọi scenario. Tất cả quality gates giữ.
+
 
 Commit tài liệu sau kiểm chứng:
 
@@ -291,7 +382,7 @@ tới các output mới, rồi điền bản sao template bằng kết quả th�
 
 ## Điều kiện nghiệm thu và Git
 
-Nghiệm thu công cụ xuất trên máy hiện tại: **189 core tests đạt**, CUDA
+Nghiệm thu **lịch sử** công cụ xuất trên máy hiện tại: **189 core tests đạt**, CUDA
 FP16/NMS và dependency check đạt. Package `outputs/demo-data/handover-v1`
 giữ đúng latency samples, metrics=null, dispatch simulation và NOT_RUN.
 Resume giữ nguyên hash/mtime ba JSON; 11 acceptance checks vẫn pending.
@@ -319,7 +410,7 @@ git commit -m 'feat: add CCTV handover evidence package and reproduction guide'
 git push origin main
 ```
 
-## T9.4 — gói bằng chứng runtime hiện tại
+## Lịch sử T9.4 — gói bằng chứng runtime
 
 `outputs/demo-data/handover-t9-v1` sử dụng runtime T9.4 của app `9ff3006`,
 event benchmark pending và dispatch simulation; giữ gói lịch sử `handover-v1`.
@@ -327,15 +418,15 @@ Export và resume ba JSON đạt, SHA/mtime giữ nguyên. Checklist máy thứ 
 vẫn `NOT_RUN`; event metrics vẫn null do chưa có khoảng được review thật.
 Chi tiết latency và kiểm chứng: `CCTV_RUNTIME_BENCHMARK.md`, mục T9.4.
 
-Để xuất gói từ phép đo mới ở hướng dẫn T9.4:
+Để đóng gói phép đo T9.4 với dispatch **được regenerate v2**, dùng output mới:
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\export_cctv_handover.py `
   --manifest configs\cctv.demo.json `
   --runtime-dir outputs\demo-data\runtime-benchmark-t9-v2 `
   --event-dir outputs\demo-data\event-benchmark-pending-v1 `
-  --dispatch-dir outputs\demo-data\dispatch-simulation-v1 `
-  --output outputs\demo-data\handover-t9-v2
+  --dispatch-dir outputs\demo-data\dispatch-simulation-v2 `
+  --output outputs\demo-data\handover-t9-dispatch-v2
 
 git diff --check
 git add docs/CCTV_RUNTIME_BENCHMARK.md docs/CCTV_HANDOVER.md `

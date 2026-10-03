@@ -25,17 +25,29 @@ from pipeline.cctv.track import TrackFrame, decoded_frames, sampled_frames
 LOG = logging.getLogger(__name__)
 
 
-def draw_overlay(image: Image.Image, record: TrackFrame, width: int) -> Image.Image:
+def draw_overlay(
+    image: Image.Image, record: TrackFrame, width: int,
+    scoped_mapping: dict[tuple, int] | None = None,
+) -> Image.Image:
     """Draw stored predictions and a scope banner; never infer ROI approval."""
     target_width = min(width, image.width) // 2 * 2
     target_height = max(2, round(image.height * target_width / image.width) // 2 * 2)
     result = image.resize((target_width, target_height))
     draw = ImageDraw.Draw(result)
     for observation in record.observations:
+        identity = observation.track_id
+        if scoped_mapping is not None:
+            key = (
+                record.run_id, record.locator.camera_id, record.locator.video_id,
+                record.segment_id, observation.track_id,
+            )
+            if key not in scoped_mapping:
+                raise ValueError("Missing stitched mapping for observation")
+            identity = scoped_mapping[key]
         color = (
-            64 + observation.track_id * 67 % 192,
-            64 + observation.track_id * 101 % 192,
-            64 + observation.track_id * 37 % 192,
+            64 + identity * 67 % 192,
+            64 + identity * 101 % 192,
+            64 + identity * 37 % 192,
         )
         box = observation.detection.bbox
         xy = (
@@ -47,7 +59,8 @@ def draw_overlay(image: Image.Image, record: TrackFrame, width: int) -> Image.Im
         draw.rectangle(xy, outline=color, width=2)
         draw.text(
             (xy[0], max(0, xy[1] - 12)),
-            f"ID {observation.track_id} {observation.detection.label}",
+            f"{'GLOBAL' if scoped_mapping is not None else 'ID'} {identity} "
+            f"{observation.detection.label}",
             fill=color,
             stroke_width=1,
             stroke_fill="black",
@@ -61,7 +74,9 @@ def draw_overlay(image: Image.Image, record: TrackFrame, width: int) -> Image.Im
     )
     draw.text(
         (6, 20),
-        "PREDICTIONS / ROI PENDING / IDs scoped by run-video-segment",
+        ("GEOMETRIC STITCHED IDs / NOT VALIDATED RE-ID / ROI PENDING"
+         if scoped_mapping is not None
+         else "PREDICTIONS / ROI PENDING / IDs scoped by run-video-segment"),
         fill="orange",
     )
     return result
@@ -78,6 +93,7 @@ def render(
     width: int,
     target: Path,
     sample_interval: float = 0.0,
+    scoped_mapping: dict[tuple, int] | None = None,
 ) -> dict:
     """Keep one decoded frame and one ledger row; abort an invalid clip, not skip it."""
     count = conn.execute(
@@ -138,7 +154,7 @@ def render(
                 if not sample_interval and previous is not None and decoded.frame_idx != previous + 1:
                     raise ValueError("Tracking frames are not consecutive")
                 previous = decoded.frame_idx
-                with draw_overlay(decoded.image, frame, width) as annotated:
+                with draw_overlay(decoded.image, frame, width, scoped_mapping) as annotated:
                     if stream is None:
                         first_pts, first_stamp = (
                             decoded.source_pts,
@@ -207,7 +223,10 @@ def render(
     )
 
 
-def run(manifest_path: Path, tracking: Path, output: Path, width: int = 960) -> dict:
+def run(
+    manifest_path: Path, tracking: Path, output: Path, width: int = 960,
+    stitched_dir: Path | None = None,
+) -> dict:
     """Render bounded clips with per-video checkpoints; preserve all source packages."""
     if not 320 <= width <= 1920 or width % 2:
         raise ValueError("Width must be even and between 320 and 1920")
@@ -264,17 +283,35 @@ def run(manifest_path: Path, tracking: Path, output: Path, width: int = 960) -> 
         ):
             raise ValueError("Raw video checksum mismatch")
         inputs.append(videos[video_id].source)
+    scoped_mapping = None
+    protected = [manifest.raw_root, manifest.path.parent, tracking, Path(__file__).parent]
+    if stitched_dir is not None:
+        from pipeline.cctv import stitch
+
+        stitched_dir = stitched_dir.absolute()
+        scoped_mapping = stitch.load_mapping(stitched_dir, tracking)
+        stitch_state = read_json(stitched_dir / "stitch_state.json")
+        inputs.extend([
+            Path(stitch.__file__).resolve(),
+            stitched_dir / "stitch_state.json",
+        ])
+        for name in stitch_state["artifacts"]:
+            inputs.append(stitched_dir / name)
+        protected.append(stitched_dir)
     before = {str(p): (digest(p), p.stat().st_mtime_ns) for p in inputs}
     recipe = dict(
         pipeline="cctv-tracking-overlay-v1",
         width=width,
         av=av.__version__,
         pillow=pillow_version,
+        id_scope=("derived_global_track_id/geometric_hypothesis"
+                  if scoped_mapping is not None
+                  else "run_id/camera_id/video_id/segment_id/track_id"),
         inputs={p: sha for p, (sha, _) in before.items()},
     )
     output = protect_output(
         output,
-        [manifest.raw_root, manifest.path.parent, tracking, Path(__file__).parent],
+        protected,
     )
     checkpoint = output / "overlay_state.json"
     if output.exists() and not checkpoint.exists() and any(output.iterdir()):
@@ -326,6 +363,7 @@ def run(manifest_path: Path, tracking: Path, output: Path, width: int = 960) -> 
                     width,
                     temporary,
                     sample_interval=signature.get("sample_interval_sec", 0),
+                    scoped_mapping=scoped_mapping,
                 )
                 if before != {
                     str(p): (digest(p), p.stat().st_mtime_ns) for p in inputs
@@ -358,7 +396,7 @@ def run(manifest_path: Path, tracking: Path, output: Path, width: int = 960) -> 
         videos=completed,
         skipped=skipped,
         operational_ready=False,
-        id_scope="run_id/camera_id/video_id/segment_id/track_id",
+        id_scope=recipe["id_scope"],
         gpu_inference=False,
     )
 
@@ -369,12 +407,16 @@ def main() -> int:
     for name in ("manifest", "tracking-dir", "output"):
         parser.add_argument("--" + name, type=Path, required=True)
     parser.add_argument("--width", type=int, default=960)
+    parser.add_argument("--stitched-dir", type=Path)
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO)
     try:
         print(
             json.dumps(
-                run(args.manifest, args.tracking_dir, args.output, args.width), indent=2
+                run(
+                    args.manifest, args.tracking_dir, args.output, args.width,
+                    stitched_dir=args.stitched_dir,
+                ), indent=2
             )
         )
         return 0

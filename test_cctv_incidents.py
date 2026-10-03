@@ -38,10 +38,9 @@ class RuleTests(unittest.TestCase):
         frames, roi, config = fixture(name)
         return screen_video(frames, roi, config, "0" * 64, synthetic=True)
 
-    def test_ten_fixtures_match_and_confounder_is_explicit(self):
+    def test_fixture_expectations_and_single_car_confounder_remain_explicit(self):
         report = evaluate_fixtures()
-        self.assertTrue(report["passed"])
-        self.assertEqual(len(report["cases"]), 10)
+        self.assertTrue(report["passed"], report["cases"])
         confounder = next(r for r in report["cases"] if r["known_non_emergency"])
         self.assertEqual(confounder["actual_rule_candidates"], 1)
         self.assertFalse(report["real_event_accuracy_measured"])
@@ -59,6 +58,114 @@ class RuleTests(unittest.TestCase):
         self.assertEqual([e.locator.frame_idx for e in event.evidence], [0, 8])
         self.assertTrue(event.synthetic_event and event.demo_only)
         self.assertFalse(event.operational_ready)
+
+    def test_collective_stop_suppresses_all_three_vehicles(self):
+        self.assertEqual(self.screen("collective_stop"), [])
+
+    def test_filter_disabled_restores_collective_stop_candidates(self):
+        records = self.screen("collective_stop_filter_disabled")
+        self.assertEqual(sorted(event.track_id for event in records), [1, 2, 3])
+        self.assertEqual(
+            [event.evidence[-1].locator.timestamp_sec for event in records],
+            [3.0, 3.0, 3.0],
+        )
+
+    def test_queue_departure_requires_more_than_five_seconds_then_emits_once(self):
+        for name, departure in (
+            ("queue_departure", 4.0),
+            ("queue_last_neighbor_departure", 6.0),
+        ):
+            with self.subTest(name=name):
+                frames, roi, config = fixture(name)
+                through_deadline = [
+                    frame
+                    for frame in frames
+                    if frame.locator.timestamp_sec <= departure + 5.0
+                ]
+                self.assertEqual(
+                    screen_video(through_deadline, roi, config, "0" * 64), []
+                )
+                records = screen_video(frames, roi, config, "0" * 64, synthetic=True)
+                self.assertEqual([event.track_id for event in records], [1])
+                event = records[0]
+                self.assertEqual(
+                    event.evidence[-1].locator.timestamp_sec, departure + 5.25
+                )
+                self.assertEqual(event.stationary_sec, departure + 4.25)
+                self.assertEqual(event.initial_status, "pending_review")
+                self.assertTrue(event.synthetic_event and event.demo_only)
+                self.assertFalse(event.thresholds_calibrated or event.operational_ready)
+
+    def test_one_remaining_queue_neighbor_keeps_suppression(self):
+        self.assertEqual(self.screen("queue_lingering_neighbor"), [])
+
+    def test_far_or_opposite_direction_neighbors_do_not_suppress(self):
+        for name in ("far_stop", "opposite_direction_stop"):
+            with self.subTest(name=name):
+                records = self.screen(name)
+                self.assertEqual(sorted(event.track_id for event in records), [1, 2, 3])
+                target = next(event for event in records if event.track_id == 1)
+                self.assertEqual(target.evidence[-1].locator.timestamp_sec, 3.0)
+
+    def test_joining_existing_queue_requires_compatible_prior_travel(self):
+        self.assertEqual(self.screen("joining_queue"), [])
+        records = self.screen("joining_opposite_queue")
+        self.assertEqual([event.track_id for event in records], [1])
+        self.assertEqual(records[0].evidence[-1].locator.timestamp_sec, 6.0)
+        records = self.screen("stationary_neighbors_without_travel")
+        self.assertEqual([event.track_id for event in records], [1])
+
+    def test_one_neighbor_does_not_meet_queue_threshold(self):
+        records = self.screen("one_queue_neighbor")
+        self.assertEqual(sorted(event.track_id for event in records), [1, 2])
+
+    def test_queue_decisions_are_independent_of_observation_order(self):
+        for name in (
+            "collective_stop",
+            "queue_departure",
+            "joining_queue",
+            "joining_opposite_queue",
+            "opposite_direction_stop",
+        ):
+            with self.subTest(name=name):
+                frames, roi, config = fixture(name)
+                baseline = screen_video(frames, roi, config, "0" * 64, synthetic=True)
+                permuted = []
+                for n, frame in enumerate(frames):
+                    value = frame.model_dump(mode="json")
+                    observations = value["observations"]
+                    if n % 2:
+                        observations.reverse()
+                    else:
+                        observations[:] = observations[1:] + observations[:1]
+                    permuted.append(
+                        incidents.TrackFrame.model_validate_json(json.dumps(value))
+                    )
+                records = screen_video(permuted, roi, config, "0" * 64, synthetic=True)
+                self.assertEqual(
+                    sorted(event.model_dump_json() for event in records),
+                    sorted(event.model_dump_json() for event in baseline),
+                )
+
+    def test_segment_or_pts_gap_resets_deferred_queue_candidate(self):
+        for reset in ("segment", "timestamp_gap"):
+            with self.subTest(reset=reset):
+                frames, roi, config = fixture("queue_departure")
+                for n in range(20, len(frames)):
+                    value = frames[n].model_dump(mode="json")
+                    if reset == "segment":
+                        value["segment_id"] = "seg-000001"
+                        for observation in value["observations"]:
+                            observation["segment_id"] = "seg-000001"
+                    else:
+                        value["locator"]["timestamp_sec"] += 2.0
+                        value["source_pts"] += 2000
+                        for observation in value["observations"]:
+                            observation["locator"]["timestamp_sec"] += 2.0
+                    frames[n] = incidents.TrackFrame.model_validate_json(
+                        json.dumps(value)
+                    )
+                self.assertEqual(screen_video(frames, roi, config, "0" * 64), [])
 
     def test_unknown_motion_and_gaps_reset(self):
         for name in (
@@ -92,6 +199,15 @@ class RuleTests(unittest.TestCase):
             dict(stationary_max_body_lengths_per_sec=0.5),
             dict(max_gap_sec=float("nan")),
             dict(box_area_min=0.0),
+            dict(queue_filter_enabled=1),
+            dict(neighbor_radius_diagonals=0.0),
+            dict(neighbor_radius_diagonals=float("nan")),
+            dict(min_queue_neighbors=0),
+            dict(min_queue_neighbors=101),
+            dict(min_queue_neighbors=1.5),
+            dict(min_queue_neighbors=True),
+            dict(stop_sync_window_sec=0.0),
+            dict(stop_sync_window_sec=float("nan")),
         ):
             with self.assertRaises(ValueError):
                 IncidentConfig.model_validate_json(

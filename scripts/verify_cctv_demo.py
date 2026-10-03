@@ -306,9 +306,9 @@ def run(
             "events-v1",
             "events-demo-v1",
             "incidents-draft-v1",
-            "dispatch-simulation-v1",
-            "dispatch-events-empty-v1",
-            "dispatch-review-gate-v1",
+            "dispatch-simulation-v2",
+            "dispatch-events-empty-v2",
+            "dispatch-review-gate-v2",
         )
     ]
     review_folders = [

@@ -9,6 +9,7 @@ import json
 import logging
 import math
 import sqlite3
+from importlib.metadata import version
 from pathlib import Path
 from typing import Callable
 
@@ -108,8 +109,7 @@ def collect_frames(source: Path) -> tuple[list[dict], str, Path]:
 
 def model_recipe(config_path: Path, device: str) -> tuple[dict, Path]:
     """Hash actual local model files as well as the pinned upstream revision."""
-    import torch
-
+    # Reading the installed version must not initialize Torch in the UI coordinator.
     config = json.loads(config_path.read_text(encoding="utf-8"))
     local = Path(config["path"]).resolve()
     if not local.is_dir() or not config.get("model") or not config.get("revision"):
@@ -130,7 +130,7 @@ def model_recipe(config_path: Path, device: str) -> tuple[dict, Path]:
         "model_sha256": bound.hexdigest(),
         "device": device,
         "precision": "fp16" if device == "cuda" else "fp32",
-        "torch": torch.__version__,
+        "torch": version("torch"),
         "metric": "cosine_ip",
     }, local
 

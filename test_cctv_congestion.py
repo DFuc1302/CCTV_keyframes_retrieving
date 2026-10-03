@@ -20,6 +20,13 @@ from pipeline.cctv.congestion import (
 from pipeline.cctv.ingest import digest, save_json
 from pipeline.cctv.track import TrackFrame
 from pipeline.cctv.traffic import CameraROI
+import numpy as np
+from pipeline.cctv.traffic import CameraCalibration
+from pipeline.cctv.congestion import compute_homography, project_point_to_ground
+import test_cctv_traffic as traffic_test_module
+import io
+from contextlib import redirect_stdout
+from pipeline.cctv.congestion import main as windows_main
 
 
 def frame(index, stamp=None, boxes=None, segment="seg-000000"):
@@ -97,6 +104,64 @@ class WindowTests(unittest.TestCase):
         return summarize_video(
             frames, self.roi, self.config, self.threshold, 0.0, end, True
         )
+
+    def test_perspective_corrected_known_40_kmh_and_uncalibrated_null(self):
+        payload = traffic_test_module.CalibrationTests().payload()
+        # X=100u/(1+v), Y=100v/(1+v); metric trajectory is horizontal.
+        payload["points"] = [
+            {"image_point": [u, v], "ground_point_meters": [100*u/(1+v), 100*v/(1+v)]}
+            for u, v in ((0, 0), (1, 0), (1, 1), (0, 1))
+        ]
+        calibration = CameraCalibration.model_validate_json(json.dumps(payload))
+        frames = [
+            frame(i, stamp=t, boxes=[(1, [u-0.02, 0.3, u+0.02, 0.5])])
+            for i, t in enumerate((0.0, 0.3, 0.7, 1.0))
+            for u in (0.2 + (40/3.6)*t*1.5/100,)
+        ]
+        calibrated = summarize_video(frames, self.roi, self.config, self.threshold, 0, 1.4, True, 0, calibration)
+        plain = self.summarize(frames, end=1.4)
+        for a, b in zip(calibrated, plain):
+            self.assertAlmostEqual(a["window"]["median_speed_kmh"], 40, delta=0.4)
+            self.assertIsNone(b["window"]["median_speed_kmh"])
+            self.assertIsNone(b["window"]["calibration_sha256"])
+            self.assertEqual(a["window"]["median_motion_px_per_sec"], b["window"]["median_motion_px_per_sec"])
+            self.assertEqual(a["status"], b["status"])
+
+    def test_metric_validity_segment_and_gap_boundaries(self):
+        calibration = CameraCalibration.model_validate_json(json.dumps(traffic_test_module.CalibrationTests().payload()))
+        for frames in (
+            [frame(0), frame(1, segment="seg-000001")],
+            [frame(0), frame(1, stamp=0.8)],
+        ):
+            rows = summarize_video(frames, self.roi, self.config, self.threshold, 0, 1, True, 0, calibration)
+            self.assertIsNone(rows[0]["window"]["median_speed_kmh"])
+            self.assertEqual(rows[0]["metric_motion_pairs"], 0)
+        calibration = calibration.model_copy(update={"roi_polygon": ((0.0, 0.0), (0.2, 0.0), (0.2, 1.0), (0.0, 1.0))})
+        rows = summarize_video([frame(0), frame(1)], self.roi, self.config, self.threshold, 0, 1, True, 0, calibration)
+        self.assertIsNone(rows[0]["window"]["median_speed_kmh"])
+        self.assertEqual(rows[0]["motion_pairs"], 1)
+
+    def test_projective_horizon_and_failed_robust_fit(self):
+        with self.assertRaises(ValueError):
+            project_point_to_ground((0, 0), np.array([[1, 0, 0], [0, 1, 0], [1, 0, 0]]))
+        with self.assertRaises(ValueError):
+            project_point_to_ground((0, 0), np.full((3, 3), np.nan))
+        value = CameraCalibration.model_validate_json(json.dumps(traffic_test_module.CalibrationTests().payload()))
+        with patch("pipeline.cctv.congestion.cv2.getPerspectiveTransform", return_value=np.zeros((3, 3))):
+            with self.assertRaises(ValueError):
+                compute_homography(value)
+        payload = traffic_test_module.CalibrationTests().payload()
+        payload["points"].append({"image_point": [0.5, 0.5], "ground_point_meters": [40, 30]})
+        value = CameraCalibration.model_validate_json(json.dumps(payload))
+        H = compute_homography(value)
+        self.assertAlmostEqual(project_point_to_ground((0.25, 0.75), H)[0], 15, places=4)
+        with patch("pipeline.cctv.congestion.cv2.findHomography", return_value=(np.eye(3), np.zeros((5, 1), dtype=np.uint8))):
+            with self.assertRaisesRegex(ValueError, "inliers"):
+                compute_homography(value)
+        crossing = np.array([[1., 0, 0], [0, 1., 0], [1., 0, -0.5]])
+        with patch("pipeline.cctv.congestion.cv2.getPerspectiveTransform", return_value=crossing):
+            with self.assertRaisesRegex(ValueError, "horizon"):
+                compute_homography(CameraCalibration.model_validate_json(json.dumps(traffic_test_module.CalibrationTests().payload())))
 
     def test_sampled_frames_keep_source_ordinals(self):
         rows = [frame(n * 12, stamp=n * 0.5) for n in range(6)]
@@ -217,6 +282,30 @@ class WindowPipelineTests(unittest.TestCase):
             output or self.output,
             draft,
         )
+
+    def test_pending_calibration_and_changed_recipe_preserve_owned_output(self):
+        path = self.metrics.parent / "calibration.json"
+        save_json(path, {"schema_version": 1, "calibrations": [], "pending_cameras": ["N001"]})
+        args = (self.fixture.manifest, self.fixture.traffic, self.metrics, self.fixture.output, self.output, True, path)
+        result = process_windows(*args)
+        self.assertEqual(result["error"], 0)
+        rows = [json.loads(line) for line in (self.output / "windows.jsonl").read_text().splitlines()]
+        self.assertTrue(all(row["median_speed_kmh"] is None for row in rows))
+        before = digest(self.output / "windows.jsonl")
+        path.write_text(path.read_text() + "\n", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "NEW output"):
+            process_windows(*args)
+        self.assertEqual(digest(self.output / "windows.jsonl"), before)
+        cli_output = self.fixture.root / "windows-cli"
+        with patch("sys.argv", [
+            "congestion", "--manifest", str(self.fixture.manifest),
+            "--roi-config", str(self.fixture.traffic), "--metrics-config", str(self.metrics),
+            "--tracking-dir", str(self.fixture.output), "--output-dir", str(cli_output),
+            "--calibration-config", str(path), "--allow-draft",
+        ]), redirect_stdout(io.StringIO()):
+            self.assertEqual(windows_main(), 0)
+        signature = json.loads((cli_output / "window_manifest.json").read_text())["signature"]
+        self.assertEqual(signature["calibration_sha256"], digest(path))
 
     def test_pending_roi_gates_before_writing_and_draft_resume_preserves_inputs(self):
         before = {

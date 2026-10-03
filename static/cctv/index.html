@@ -53,14 +53,28 @@
         </section>
         <section aria-label="Chạy xử lý">
           <h2>3. Chạy và xem kết quả</h2>
-          <p class="hint">Một tác vụ mỗi lần. Tìm kiếm tạm dừng trong khi pipeline dùng GPU.</p>
-          <div class="workflow-actions"><button id="workflow-run" type="button" class="primary">Chạy toàn bộ pipeline</button><button id="workflow-models" type="button">Tải mô hình còn thiếu</button><button id="workflow-retry" type="button" disabled>Thử lại</button><button id="workflow-stop" type="button" disabled>Dừng</button></div>
-          <p id="workflow-job" role="status">Chọn dữ liệu để bắt đầu.</p>
-          <progress id="workflow-progress" value="0" max="1" aria-label="Các bước xử lý"></progress>
+          <div class="execution-mode-tabs" role="tablist" aria-label="Chế độ xử lý">
+            <button id="mode-device-btn" type="button" class="active" role="tab" aria-selected="true">Chạy trên thiết bị (On-Device)</button>
+            <button id="mode-colab-btn" type="button" role="tab" aria-selected="false">Chạy qua Google Colab (Cloud GPU)</button>
+          </div>
+          <div id="execution-device-panel">
+            <p class="hint">Xử lý cục bộ bằng GPU/CPU của máy. Một tác vụ mỗi lần; tìm kiếm tạm dừng khi pipeline chạy.</p>
+            <div class="workflow-actions"><button id="workflow-run" type="button" class="primary">Chạy toàn bộ pipeline</button><button id="workflow-models" type="button">Tải mô hình còn thiếu</button><button id="workflow-retry" type="button" disabled>Thử lại</button><button id="workflow-stop" type="button" disabled>Dừng</button></div>
+            <p id="workflow-job" role="status">Chọn dữ liệu để bắt đầu.</p>
+            <progress id="workflow-progress" value="0" max="1" aria-label="Các bước xử lý"></progress>
+          </div>
+          <div id="execution-colab-panel" hidden>
+            <p class="hint">Chạy trên Tesla T4 GPU của Google Colab giúp giải phóng hoàn toàn tài nguyên máy cục bộ.</p>
+            <ol class="colab-steps">
+              <li>Xuất gói tác vụ: <button id="workflow-colab-export" type="button" disabled>Xuất job Colab (.zip)</button></li>
+              <li>Chạy trên Colab: <a href="https://colab.research.google.com/github/DFuc1302/CCTV_keyframes_retrieving/blob/main/notebooks/CCTV_Colab.ipynb" target="_blank" rel="noopener noreferrer" class="colab-link">Mở notebook Colab ↗</a></li>
+              <li>Nạp kết quả vào hệ thống:
+                <label for="workflow-colab-import">Chọn file kết quả (.result.zip, tối đa 4 GiB)</label>
+                <input id="workflow-colab-import" type="file" accept=".zip" disabled>
+              </li>
+            </ol>
+          </div>
           <div class="workflow-actions"><button id="workflow-activate" type="button" disabled>Mở kết quả trong các tab</button><button id="workflow-report" type="button" disabled>Tải báo cáo ZIP</button></div>
-          <div class="workflow-actions"><button id="workflow-colab-export" type="button" disabled>Xuất job Colab</button><a href="https://colab.research.google.com/github/DFuc1302/CCTV_keyframes_retrieving/blob/main/notebooks/CCTV_Colab.ipynb" target="_blank" rel="noopener noreferrer">Mở notebook Colab</a></div>
-          <label for="workflow-colab-import">Nhập kết quả Colab (.zip, tối đa 4 GiB)</label>
-          <input id="workflow-colab-import" type="file" accept=".zip" disabled>
           <div class="workflow-actions"><button id="workflow-verify" type="button" disabled>Tự kiểm chứng T10</button><button id="workflow-verify-retry" type="button" disabled>Thử lại T10</button></div>
           <p id="workflow-verify-status" role="status">Chạy pipeline trước để tự kiểm chứng demo. M8 và chất lượng độc lập vẫn pending.</p>
           <progress id="workflow-verify-progress" value="0" max="5" aria-label="Tiến độ kiểm chứng T10"></progress>
@@ -88,7 +102,7 @@
           <div id="text-panel" role="tabpanel" aria-labelledby="text-tab">
             <label for="query">Bạn đang tìm cảnh nào?</label>
             <textarea id="query" maxlength="500" rows="5" placeholder="A busy road intersection at night with headlights"></textarea>
-            <p class="hint">Dùng mô tả tiếng Anh cho baseline CLIP hiện tại.</p>
+            <p class="hint">Mô tả tiếng Anh hoặc các cụm giao thông tiếng Việt được hỗ trợ. Prompt được hiểu sẽ hiện cùng kết quả; chưa phải bộ dịch tổng quát.</p>
             <p class="small-label">THỬ MỘT MÔ TẢ</p>
             <div class="examples"><button type="button" data-query="a busy road intersection at night with headlights">Giao thông ban đêm ↗</button><button type="button" data-query="motorbikes waiting at a traffic light during the day">Xe máy tại đèn giao thông ↗</button></div>
           </div>
@@ -123,11 +137,14 @@
             <div><span>Số xe trung bình</span><strong id="metric-count">—</strong><small>Số bbox trong ROI</small></div>
             <div><span>Occupancy</span><strong id="metric-occupancy">—</strong><small>Diện tích bbox / ROI</small></div>
             <div><span>Chuyển động ảnh</span><strong id="metric-motion">—</strong><small>px/s · không phải km/h</small></div>
+            <div><span>Tốc độ mặt đường</span><strong id="metric-speed">Chưa khả dụng</strong><small>km/h · cần hiệu chuẩn mặt đường</small></div>
             <div><span>Coverage</span><strong id="metric-coverage">—</strong><small>Thời gian có frame hợp lệ</small></div>
-          </div><p id="traffic-signal" class="signal-label"></p><p id="traffic-evidence" class="hint"></p><button id="traffic-view" class="primary" type="button" disabled>Xem cửa sổ trong video ↗</button><button id="traffic-overlay-view" class="outline-button" type="button" disabled>Xem bbox và ID tracking ↗</button><p id="traffic-overlay-notice" class="hint" role="status">Overlay chứa predictions; ID chỉ có ý nghĩa trong từng segment, ROI chưa duyệt.</p></div>
+          </div><p id="traffic-signal" class="signal-label"></p><p id="traffic-evidence" class="hint"></p>
+          <p id="traffic-calibration" class="hint" style="overflow-wrap: anywhere">Nguồn hiệu chuẩn mặt đường: chưa khả dụng.</p><p class="hint">Hiệu chuẩn hình học không xác nhận ngưỡng tắc đường hoặc chất lượng tốc độ thực tế.</p>
+          <button id="traffic-view" class="primary" type="button" disabled>Xem cửa sổ trong video ↗</button><button id="traffic-overlay-view" class="outline-button" type="button" disabled>Xem bbox và ID tracking ↗</button><p id="traffic-overlay-notice" class="hint" role="status">Overlay chứa predictions; ID chỉ có ý nghĩa trong từng segment, ROI chưa duyệt.</p></div>
         </div>
         <div class="traffic-timeline"><h3>Timeline occupancy</h3><p class="hint">Độ cao cột là tỷ lệ diện tích ROI bị bbox che phủ (0–100%). Chọn cột để xem chỉ số tương ứng.</p><div id="traffic-bars" class="traffic-bars" aria-label="Các cửa sổ thống kê"></div><div class="timeline-pagination"><button id="traffic-prev" class="outline-button" type="button">← Trước</button><span id="traffic-page"></span><button id="traffic-next" class="outline-button" type="button">Tiếp →</button></div></div>
-        <div class="traffic-table-wrap"><table class="traffic-table"><caption>Chỉ số từng cửa sổ · chọn thời gian để mở video</caption><thead><tr><th scope="col">Thời gian</th><th scope="col">Xe TB</th><th scope="col">Occupancy</th><th scope="col">Motion (px/s)</th><th scope="col">Coverage</th><th scope="col">Trạng thái thử nghiệm</th></tr></thead><tbody id="traffic-table-body"></tbody></table></div>
+        <div class="traffic-table-wrap"><table class="traffic-table"><caption>Chỉ số từng cửa sổ · chọn thời gian để mở video</caption><thead><tr><th scope="col">Thời gian</th><th scope="col">Xe TB</th><th scope="col">Occupancy</th><th scope="col">Motion (px/s)</th><th scope="col">Tốc độ (km/h)</th><th scope="col">Coverage</th><th scope="col">Trạng thái thử nghiệm</th></tr></thead><tbody id="traffic-table-body"></tbody></table></div>
       </div>
     </section>
     <section id="events-workspace" role="tabpanel" aria-labelledby="events-section-tab" hidden>

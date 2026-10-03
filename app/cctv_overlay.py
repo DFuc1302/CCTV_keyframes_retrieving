@@ -20,12 +20,16 @@ ROOT = Path(__file__).resolve().parents[1]
 class OverlayStore:
     """Validate a bounded sealed publication once, invalidate edits while serving."""
 
-    def __init__(self, output: Path, tracking: Path, manifest: Path) -> None:
+    def __init__(
+        self, output: Path, tracking: Path, manifest: Path,
+        stitched_dir: Path | None = None,
+    ) -> None:
         self.output, self.tracking, self.manifest = (
             output.absolute(),
             tracking.absolute(),
             manifest.absolute(),
         )
+        self.stitched_dir = stitched_dir.absolute() if stitched_dir is not None else None
         self.ready = False
         self.rows: dict[str, dict] = {}
         self.paths: dict[str, tuple[Path, str]] = {}
@@ -89,6 +93,22 @@ class OverlayStore:
                     ],
                     *[videos[vid].source for vid in selected],
                 ]
+                scope = state["signature"].get(
+                    "id_scope", "run_id/camera_id/video_id/segment_id/track_id"
+                )
+                if scope == "derived_global_track_id/geometric_hypothesis":
+                    if self.stitched_dir is None:
+                        raise ValueError("Derived overlay requires an explicit stitching directory")
+                    from pipeline.cctv import stitch
+
+                    stitch.load_mapping(self.stitched_dir, self.tracking)
+                    inputs.extend([
+                        Path(stitch.__file__).resolve(),
+                        self.stitched_dir / "stitch_state.json",
+                        *[self.stitched_dir / name for name in sorted(stitch.ARTIFACTS)],
+                    ])
+                elif scope != "run_id/camera_id/video_id/segment_id/track_id":
+                    raise ValueError("Unknown overlay identity scope")
                 checksums = state["signature"]["inputs"]
                 if set(checksums) != {str(p) for p in inputs}:
                     raise ValueError("Unexpected overlay input paths")
@@ -151,6 +171,7 @@ class OverlayStore:
                             predictions_only=True,
                             roi_approved=False,
                             operational_ready=False,
+                            id_scope=scope,
                         )
                 self.watch(checkpoint, digest(checkpoint))
                 self.ready = True
@@ -193,6 +214,7 @@ class OverlayStore:
             video_url=row["video_url"],
             video_seek_sec=stamp - row["playback_to_source_offset_sec"],
             tracking_overlay=True,
+            id_scope=row["id_scope"],
         )
 
     def status(self) -> dict:

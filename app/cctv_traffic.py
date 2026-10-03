@@ -13,6 +13,8 @@ from pathlib import Path
 from pipeline.cctv.ingest import digest, reject_link
 from pipeline.cctv.manifest import identity
 from pipeline.cctv.signals import Signal
+from pipeline.cctv.congestion import DraftWindow
+from pipeline.cctv.traffic import TrafficWindow
 
 LOG = logging.getLogger("cctv.traffic.api")
 MAX_LEDGER_BYTES = 64 * 1024 * 1024
@@ -190,10 +192,12 @@ class TrafficStore:
                                 > window.start_sec
                             ):
                                 raise ValueError("Windows overlap or are unordered")
-                            if json.loads(windows.readline()) != window.model_dump(
-                                mode="json"
-                            ):
+                            ledger_window = (DraftWindow if window.kind == "draft_window" else TrafficWindow).model_validate_json(windows.readline())
+                            if ledger_window != window:
                                 raise ValueError("Window/signal ledger mismatch")
+                            calibration_hashes = manifest.get("camera_calibration_sha256", {})
+                            if window.calibration_sha256 != calibration_hashes.get(window.camera_id):
+                                raise ValueError("Window calibration provenance mismatch")
                             evidence = conn.execute(
                                 "SELECT frame_idx,timestamp_sec FROM frames WHERE video_id=? AND timestamp_sec>=? AND timestamp_sec<? ORDER BY frame_idx LIMIT 1",
                                 (vid, window.start_sec, window.end_sec),

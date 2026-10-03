@@ -132,6 +132,90 @@ class TrafficConfig(Contract):
             )
 
 
+
+def calibration_geometry(points: tuple[tuple[float, float], ...]) -> None:
+    """Reject duplicate and poorly conditioned two-dimensional survey geometry."""
+    import numpy as np
+
+    values = np.asarray(points, dtype=np.float64)
+    if len(points) < 4 or len(points) > 64 or len(set(points)) != len(points):
+        raise ValueError("Calibration needs 4-64 distinct correspondences")
+    centered = values - values.mean(axis=0)
+    singular = np.linalg.svd(centered, compute_uv=False)
+    if singular[0] <= 1e-12 or singular[1] <= singular[0] * 1e-5:
+        raise ValueError("Calibration geometry is degenerate or near-collinear")
+    if len(points) == 4:
+        scale = singular[0] ** 2
+        for i in range(4):
+            for j in range(i + 1, 4):
+                for k in range(j + 1, 4):
+                    a, b, c = values[i], values[j], values[k]
+                    area = abs((b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]))
+                    if area <= scale * 1e-5:
+                        raise ValueError("Four-point fit contains near-collinear points")
+
+
+class GroundPointPair(Contract):
+    image_point: Point
+    ground_point_meters: tuple[float, float]
+
+
+class CameraCalibration(Contract):
+    camera_id: str
+    calibration_version: Literal[1] = 1
+    points: tuple[GroundPointPair, ...]
+    roi_polygon: tuple[Point, ...]
+    reviewer: str | None = None
+    reviewed_at: str | None = None
+
+    @field_validator("calibration_version", mode="before")
+    @classmethod
+    def validate_calibration_version(cls, value):
+        if type(value) is not int:
+            raise ValueError("calibration_version must be an integer")
+        return value
+
+    @model_validator(mode="after")
+    def validate_calibration(self):
+        identity(self.camera_id, "camera_id")
+        calibration_geometry(tuple(p.image_point for p in self.points))
+        calibration_geometry(tuple(p.ground_point_meters for p in self.points))
+        polygon_valid(self.roi_polygon)
+        if (self.reviewer is None) != (self.reviewed_at is None):
+            raise ValueError("Calibration reviewer and review time must be paired")
+        if self.reviewer is not None:
+            if not self.reviewer.strip():
+                raise ValueError("Calibration reviewer must be nonblank")
+            if datetime.fromisoformat(self.reviewed_at).utcoffset() is None:
+                raise ValueError("Calibration review time requires explicit timezone")
+        return self
+
+
+class CalibrationConfig(Contract):
+    schema_version: Literal[1]
+    calibrations: tuple[CameraCalibration, ...]
+    pending_cameras: tuple[str, ...] = ()
+
+    @model_validator(mode="after")
+    def validate_cameras(self):
+        names = [c.camera_id for c in self.calibrations] + list(self.pending_cameras)
+        for name in names:
+            identity(name, "camera_id")
+        if len({n.casefold() for n in names}) != len(names):
+            raise ValueError("Duplicate calibration/pending camera")
+        return self
+
+    def bind(self, manifest: Manifest) -> None:
+        actual = {c.camera_id for c in self.calibrations} | set(self.pending_cameras)
+        if actual != {str(c["camera_id"]) for c in manifest.cameras}:
+            raise ValueError("Calibration config must cover canonical manifest cameras")
+
+
+def load_calibration_config(path: Path, manifest: Manifest) -> CalibrationConfig:
+    config = CalibrationConfig.model_validate_json(path.read_text(encoding="utf-8-sig"))
+    config.bind(manifest)
+    return config
+
 class Locator(Contract):
     """PTS seconds relative to first decoded source frame; ordinal starts at zero."""
 
@@ -229,6 +313,8 @@ class TrafficWindow(Contract):
     mean_vehicle_count: NonNegative
     mean_occupancy: Unit
     median_motion_px_per_sec: NonNegative | None
+    median_speed_kmh: NonNegative | None = None
+    calibration_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")] | None = None
     roi_status: Literal["approved"]
 
     @model_validator(mode="after")
@@ -237,6 +323,8 @@ class TrafficWindow(Contract):
             identity(getattr(self, field), field)
         if self.end_sec <= self.start_sec:
             raise ValueError("Window end must exceed start")
+        if self.median_speed_kmh is not None and self.calibration_sha256 is None:
+            raise ValueError("Metric speed requires calibration provenance")
         return self
 
 

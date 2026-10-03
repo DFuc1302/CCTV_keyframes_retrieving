@@ -9,7 +9,10 @@ const trafficLabels = {
   congestion_candidate: "Ứng viên tắc đường — cần xem lại"
 };
 function trafficNumber(value) {
-  return value === null ? "Chưa đủ dữ liệu" : Number(value).toLocaleString("vi-VN", {maximumFractionDigits: 1});
+  return value == null ? "Chưa đủ dữ liệu" : Number(value).toLocaleString("vi-VN", {maximumFractionDigits: 1});
+}
+function trafficSpeed(value) {
+  return value == null ? "Chưa khả dụng" : `${trafficNumber(value)} km/h`;
 }
 function trafficTime(row) { return `${timeLabel(row.window.start_sec)} – ${timeLabel(row.window.end_sec)}`; }
 function selectSection(key) {
@@ -79,14 +82,21 @@ function selectTrafficWindow(row, index) {
   $("metric-count").textContent = trafficNumber(row.window.mean_vehicle_count);
   $("metric-occupancy").textContent = `${trafficNumber(row.window.mean_occupancy * 100)}%`;
   $("metric-motion").textContent = trafficNumber(row.window.median_motion_px_per_sec);
+  $("metric-speed").textContent = trafficSpeed(row.window.median_speed_kmh);
+  const calibrationHash = row.window.calibration_sha256;
+  $("traffic-calibration").textContent = calibrationHash
+    ? `Nguồn hiệu chuẩn mặt đường của camera · SHA256: ${calibrationHash}`
+    : "Nguồn hiệu chuẩn mặt đường: chưa khả dụng.";
   $("metric-coverage").textContent = `${trafficNumber(row.coverage * 100)}%`;
   $("traffic-signal").textContent = trafficLabels[row.status];
   $("traffic-signal").classList.toggle("candidate", row.status === "congestion_candidate");
-  $("traffic-evidence").textContent = `${row.motion_pairs} cặp motion · Điều kiện duy trì ${trafficNumber(row.persistent_sec)} giây. Ngưỡng chưa hiệu chỉnh.`;
+  $("traffic-evidence").textContent = `${row.motion_pairs} cặp pixel · ${row.metric_motion_pairs ?? 0} cặp metric · Điều kiện duy trì ${trafficNumber(row.persistent_sec)} giây. Ngưỡng chưa hiệu chỉnh.`;
   $("traffic-view").disabled = false;
   $("traffic-overlay-view").disabled = !row.tracking_overlay;
   $("traffic-overlay-notice").textContent = row.tracking_overlay
-    ? "Overlay chứa predictions; ID chỉ có ý nghĩa trong từng segment, ROI chưa duyệt."
+    ? (row.tracking_overlay.id_scope === "derived_global_track_id/geometric_hypothesis"
+      ? "Overlay chứa predictions; ID nối hình học chưa được kiểm chứng, ROI chưa duyệt."
+      : "Overlay chứa predictions; ID chỉ có ý nghĩa trong từng segment, ROI chưa duyệt.")
     : "Overlay chưa khả dụng cho cửa sổ này. Video gốc và thống kê vẫn xem được.";
   Array.from($("traffic-bars").children).forEach((button, i) => { button.classList.toggle("selected", i === index); button.setAttribute("aria-pressed", String(i === index)); });
 }
@@ -104,7 +114,8 @@ function renderTrafficRows(rows) {
     button.type = "button"; button.addEventListener("click", () => { if (trafficLoading) return; selectTrafficWindow(row, index); view(row.evidence); });
     timeCell.append(button); tr.append(timeCell);
     [trafficNumber(row.window.mean_vehicle_count), `${trafficNumber(row.window.mean_occupancy * 100)}%`,
-      trafficNumber(row.window.median_motion_px_per_sec), `${trafficNumber(row.coverage * 100)}%`, trafficLabels[row.status]]
+      trafficNumber(row.window.median_motion_px_per_sec), trafficSpeed(row.window.median_speed_kmh),
+      `${trafficNumber(row.coverage * 100)}%`, trafficLabels[row.status]]
       .forEach(text => tr.append(element("td", "", text)));
     $("traffic-table-body").append(tr);
   });

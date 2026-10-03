@@ -21,7 +21,10 @@ from tqdm import tqdm
 from pipeline.cctv.ingest import digest, output_lease, reject_link, save_json
 from pipeline.cctv.manifest import Manifest, identity, load_manifest
 from pipeline.cctv.track import TrackFrame
-from pipeline.cctv.traffic import CameraROI, Contract, TrafficWindow, Unit, load_config
+from pipeline.cctv.traffic import (
+    CameraROI, CameraCalibration, Contract, TrafficWindow, Unit,
+    calibration_geometry, load_config, load_calibration_config,
+)
 
 LOG = logging.getLogger("cctv.congestion")
 PIPELINE = "cctv-congestion-v1"
@@ -116,6 +119,51 @@ class RasterROI:
         return len(anchors), occupancy, anchors
 
 
+def project_point_to_ground(point: tuple[float, float], H: np.ndarray) -> tuple[float, float]:
+    """Project normalized image coordinates, rejecting horizons and nonfinite output."""
+    matrix = np.asarray(H, dtype=np.float64)
+    vector = np.asarray((*point, 1.0), dtype=np.float64)
+    if matrix.shape != (3, 3) or not np.isfinite(matrix).all() or not np.isfinite(vector).all():
+        raise ValueError("Invalid projective matrix or point")
+    projected = matrix @ vector
+    bound = np.linalg.norm(matrix[2]) * np.linalg.norm(vector)
+    if bound == 0 or abs(projected[2]) <= bound * 1e-10:
+        raise ValueError("Unsafe projective denominator")
+    result = projected[:2] / projected[2]
+    if not np.isfinite(result).all():
+        raise ValueError("Nonfinite ground projection")
+    return float(result[0]), float(result[1])
+
+
+def compute_homography(calibration: CameraCalibration) -> np.ndarray:
+    """Fit a planar metric transform; extra markers require a robust majority fit."""
+    image = np.asarray([p.image_point for p in calibration.points], dtype=np.float64)
+    ground = np.asarray([p.ground_point_meters for p in calibration.points], dtype=np.float64)
+    if len(image) == 4:
+        H = cv2.getPerspectiveTransform(image.astype(np.float32), ground.astype(np.float32))
+    else:
+        span = float(np.linalg.norm(np.ptp(ground, axis=0)))
+        H, mask = cv2.findHomography(image, ground, cv2.RANSAC, max(1e-6, span * 0.005))
+        if mask is None or int(mask.sum()) < max(4, math.ceil(len(image) * 0.75)):
+            raise ValueError("Calibration lacks sufficient robust inliers")
+        keep = mask.ravel().astype(bool)
+        calibration_geometry(tuple(map(tuple, image[keep])))
+        calibration_geometry(tuple(map(tuple, ground[keep])))
+    if H is None or not np.isfinite(H).all():
+        raise ValueError("Homography fit failed")
+    norm = np.linalg.norm(H)
+    if norm == 0 or np.linalg.svd(H / norm, compute_uv=False)[-1] <= 1e-12:
+        raise ValueError("Singular or ill-conditioned homography")
+    H = H / norm
+    denominators = []
+    for point in calibration.roi_polygon:
+        project_point_to_ground(point, H)
+        denominators.append(float(H[2] @ np.asarray((*point, 1.0))))
+    if min(denominators) < 0 < max(denominators):
+        raise ValueError("Calibration validity region crosses projective horizon")
+    return H
+
+
 def summarize_video(
     records: Iterable[TrackFrame],
     roi: CameraROI,
@@ -125,6 +173,7 @@ def summarize_video(
     end: float | None,
     draft: bool,
     sample_interval: float = 0.0,
+    calibration: CameraCalibration | None = None,
 ) -> list[dict]:
     """Integrate sample-and-hold only over observed adjacent PTS intervals."""
     if not draft and roi.status != "approved":
@@ -137,6 +186,17 @@ def summarize_video(
     last_stamp = start
     sealed_index = -1
 
+    H = compute_homography(calibration) if calibration is not None else None
+    calibration_hash = (
+        hashlib.sha256(canonical(calibration.model_dump(mode="json")).encode()).hexdigest()
+        if calibration is not None else None
+    )
+    valid_contour = (
+        np.asarray(calibration.roi_polygon, dtype=np.float32) if calibration is not None else None
+    )
+    if calibration is not None and calibration.camera_id != roi.camera_id:
+        raise ValueError("Calibration camera mismatch")
+    previous_ground = {}
     def bucket(index: int) -> dict:
         if index > 100000:
             raise ValueError("Too many windows; increase window_sec")
@@ -148,6 +208,7 @@ def summarize_video(
                 "count": 0.0,
                 "occupancy": 0.0,
                 "motion": [],
+                "metric": [],
             },
         )
 
@@ -172,6 +233,15 @@ def summarize_video(
                     "Frames must have increasing PTS and consecutive ordinals"
                 )
             count, occupancy, anchors = raster.measure(frame)
+            ground_anchors = {}
+            if H is not None:
+                for track_key, anchor in anchors.items():
+                    point = (anchor[0] / frame.width, anchor[1] / frame.height)
+                    if cv2.pointPolygonTest(valid_contour, point, False) >= 0:
+                        try:
+                            ground_anchors[track_key] = project_point_to_ground(point, H)
+                        except ValueError:
+                            pass  # An unsafe projection is unavailable, never zero speed.
             current = bucket(int((stamp - start) // config.window_sec))
             current["samples"] += 1
             if previous:
@@ -196,6 +266,12 @@ def summarize_video(
                         current["motion"].append(
                             math.dist(anchors[track_key], old_anchors[track_key]) / dt
                         )
+                    for track_key in ground_anchors.keys() & previous_ground.keys():
+                        if len(current["metric"]) >= 100000:
+                            raise ValueError("Metric pairs exceed window memory bound")
+                        current["metric"].append(
+                            3.6 * math.dist(ground_anchors[track_key], previous_ground[track_key]) / dt
+                        )
             current_index = int((stamp - start) // config.window_sec)
             while sealed_index < current_index - 1:
                 sealed_index += 1
@@ -206,12 +282,17 @@ def summarize_video(
                         median(sealed["motion"]) if sealed["motion"] else None
                     )
                     sealed["motion"].clear()
+                    sealed["metric_count"] = len(sealed["metric"])
+                    sealed["metric_median"] = median(sealed["metric"]) if sealed["metric"] else None
+                    sealed["metric"].clear()
             previous = (stamp, loc.frame_idx, count, occupancy, anchors)
+            previous_ground = ground_anchors
             last_stamp = stamp
         except Exception:
             LOG.exception("frame_error | %s", frame.locator.model_dump())
             errors += 1
             previous = None
+            previous_ground = {}
     if errors:
         raise ValueError(f"Video rejected after {errors} invalid frames")
     if identity_key is None:
@@ -259,6 +340,8 @@ def summarize_video(
             mean_vehicle_count=count,
             mean_occupancy=min(1.0, occupancy),
             median_motion_px_per_sec=motion,
+            median_speed_kmh=item.get("metric_median", median(item["metric"]) if item["metric"] else None),
+            calibration_sha256=calibration_hash,
             roi_status="pending" if draft else "approved",
         )
         result.append(
@@ -266,6 +349,7 @@ def summarize_video(
                 "window": window.model_dump(mode="json"),
                 "coverage": coverage,
                 "motion_pairs": motion_count,
+                "metric_motion_pairs": item.get("metric_count", len(item["metric"])),
                 "evidence_sufficient": eligible,
                 "status": (
                     "insufficient_evidence"
@@ -334,12 +418,15 @@ def process_windows(
     tracks: Path,
     output: Path,
     draft: bool = False,
+    calibration_path: Path | None = None,
 ) -> dict:
     """Resume by whole video; write only to an isolated owned CPU output folder."""
     tracks, output = tracks.absolute(), output.absolute()
     manifest, rois, metrics, tracking, publication = inspect_inputs(
         manifest_path, roi_path, metrics_path, tracks, draft
     )
+    calibrations = load_calibration_config(calibration_path, manifest) if calibration_path is not None else None
+    calibration_file_hash = digest(calibration_path) if calibration_path is not None else None
     reject_link(output)
     for protected in (
         manifest.raw_root,
@@ -347,6 +434,7 @@ def process_windows(
         manifest_path.resolve().parent,
         roi_path.resolve().parent,
         metrics_path.resolve().parent,
+        *([calibration_path.resolve().parent] if calibration_path is not None else []),
     ):
         if output.is_relative_to(protected) or protected.is_relative_to(output):
             raise ValueError("Output overlaps input/config/raw directory")
@@ -358,6 +446,7 @@ def process_windows(
         },
         "roi_sha256": digest(roi_path),
         "metrics_sha256": digest(metrics_path),
+        "calibration_sha256": calibration_file_hash,
         "code_sha256": digest(Path(__file__)),
         "track_contract_sha256": digest(Path(__file__).with_name("track.py")),
         "traffic_contract_sha256": digest(Path(__file__).with_name("traffic.py")),
@@ -499,6 +588,8 @@ def process_windows(
                             None if duration is None else start + duration,
                             draft,
                             tracking["signature"].get("sample_interval_sec", 0),
+                            next((c for c in calibrations.calibrations if c.camera_id == camera), None)
+                            if calibrations is not None else None,
                         )
                         payload = canonical(rows)
                         with target:
@@ -522,6 +613,8 @@ def process_windows(
                     return result
             # Sources must remain identical through the CPU stage.
             inspect_inputs(manifest_path, roi_path, metrics_path, tracks, draft)
+            if calibration_path is not None and digest(calibration_path) != calibration_file_hash:
+                raise ValueError("Calibration input changed during processing")
             rows = [r for vid in sorted(completed) for r in completed[vid]]
             result["windows"] = len(rows)
             report = {
@@ -530,6 +623,10 @@ def process_windows(
                 "windows": len(rows),
                 "videos": sorted(completed),
                 "demo_only": draft,
+                "camera_calibration_sha256": {
+                    c.camera_id: hashlib.sha256(canonical(c.model_dump(mode="json")).encode()).hexdigest()
+                    for c in calibrations.calibrations
+                } if calibrations is not None else {},
                 "roi_ready": not draft,
                 "thresholds_calibrated": False,
                 "operational_ready": False,
@@ -583,6 +680,7 @@ def main() -> int:
     parser.add_argument("--tracking-dir", required=True, type=Path)
     parser.add_argument("--output-dir", required=True, type=Path)
     parser.add_argument("--allow-draft", action="store_true")
+    parser.add_argument("--calibration-config", type=Path)
     args = parser.parse_args()
     try:
         result = process_windows(
@@ -592,6 +690,7 @@ def main() -> int:
             args.tracking_dir,
             args.output_dir,
             args.allow_draft,
+            args.calibration_config,
         )
         print(json.dumps(result, indent=2))
         return 1 if result["error"] else 0

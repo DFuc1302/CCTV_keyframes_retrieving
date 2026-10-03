@@ -1,5 +1,114 @@
 # Đối chiếu kế hoạch và tiến độ CCTV
 
+
+## M10 — hoàn tất runner hiệu chỉnh ngưỡng 27+9 và gỡ bottleneck kỹ thuật — 2026-10-03
+
+Đã giải quyết hoàn toàn nút thắt cổ chai kỹ thuật (engineering bottleneck) cuối cùng của M10:
+
+- **Triển khai runner hiệu chỉnh ngưỡng**: `pipeline/cctv/calibrate_thresholds.py` và CLI `scripts/calibrate_cctv_thresholds.py`
+  thực thi đúng protocol đã chốt: sweep 27 cấu hình tắc đường (occupancy 0,20/0,25/0,30 × motion 8/12/16 px/s × persistence 4/6/8 s)
+  và 9 cấu hình sự cố (stationary 0,02/0,04/0,06 × duration 1/2/3 s) trên tập `development`, tái sử dụng vết xe từ `tracks.db`.
+- **Quy tắc chọn tối ưu và tie-breaking**: Ưu tiên F1 development tại IoU 0,3; hòa thì chọn FP/h thấp hơn; hòa tiếp thì chọn khoảng cách tương đối gần baseline hơn; hòa tiếp thì chọn theo thứ tự tham số tăng dần. Khi F1 undefined (chưa có nhãn/sự kiện), giữ nguyên baseline với ghi chú tường minh.
+- **Đánh giá frozen test split**: Chạy bộ tham số tối ưu trên tập `test` tại các ngưỡng IoU 0,1; 0,3; 0,5 với đầy đủ phân rã theo nhãn và camera.
+- **Bảo toàn tính toàn vẹn (Integrity)**: Khi dữ liệu nhãn là pending, runner trả về `NOT_EVALUATED_NO_REVIEWED_INTERVALS` với `operational_ready=False`, tuyệt đối không tự tạo nhãn giả.
+- **Tích hợp và kiểm chứng hồi quy**: Đã tích hợp `test_cctv_calibration` vào `scripts/verify_cctv_t10.py` và `scripts/Test-Windows.ps1`.
+  Bộ kiểm thử Windows đạt **358 tests: 357 passed, 1 skipped** (OS không cho directory symlink), pip check/compile/CUDA FP16/NMS đạt.
+  Evidence: `outputs/tests/m10-calibration-core-tests.txt`, `outputs/tests/m11-regression.json`.
+## M11 — cold UI pipeline đạt sau sửa ownership/commit — 2026-10-03
+
+Đã tiếp tục blocker cold CLIP load, không thay bằng review/quality giả:
+
+- Probe cũ giữ ~4.334 MiB private commit sau `ClipEncoder.close()`; child load
+  lỗi Windows 1455 dù còn ~14,2 GiB physical RAM. `pread` cũng lỗi ở metadata map.
+- Import NumPy/FAISS mặc định khiến coordinator không Torch giữ ~2.460 MiB
+  private commit; đặt native pools 2 threads giảm còn ~215 MiB.
+- CLIP phục vụ chuyển sang `ProcessClipEncoder`; close chờ process thoát trước
+  stage GPU. Coordinator đọc Torch version bằng package metadata, không import
+  Torch. Windows defaults `OPENBLAS_NUM_THREADS=2`, `OMP_NUM_THREADS=2`;
+  explicit overrides giữ nguyên. Không đổi OS/pagefile, model, precision hoặc loader.
+- Smoke CUDA: worker exit=0, commit headroom phục hồi ~4.109 MiB; loader trực tiếp
+  tiếp theo đạt, text/image vectors có max error=0 so với process phục vụ.
+- Fresh upload bằng file input browser: test-pattern H.264 12 giây, pending ROI,
+  toàn video/2 FPS; run `run-3fe5e14f7773411b8a7fec00f222d87e` đạt **12/12**
+  lần đầu, không retry hoặc index standalone. 24 index/tracking frames, 6 windows.
+  Text/image UI mỗi loại trả 12 kết quả; source/overlay readyState=4, report button
+  HTTP 200. ZIP 34 members/CRC đạt; uploaded source SHA/mtime giữ nguyên.
+- 44 focused tests đạt. Full Windows verification: **353 tests, 352 passed/1 skipped**
+  (OS không cho directory symlink); pip check/compile/CUDA FP16/NMS đạt.
+  Evidence: `outputs/tests/m11-loader-before.json`, `m11-native-pool-commit.json`,
+  `m11-process-lifecycle.json`, `m11-process-focused.txt`, `m11-process-core-tests.txt`,
+  `m11-regression.json`, `m11-cold-smoke.json`, `m11-cold-report.zip`.
+  Browser giữ hai ERR_ABORTED khi đóng video/download; không gọi đó là lỗi pipeline.
+
+**M11 implementation + cold local smoke đạt trong phạm vi này**, không phải SLA
+hoặc quality benchmark. Native mapping crash cũ phù hợp commit exhaustion
+([PyTorch mapping source](https://github.com/pytorch/pytorch/blob/v2.7.1/aten/src/ATen/MapAllocator.cpp#L211-L231));
+đây là inference cho crash cũ, không có native dump chứng minh từng lần fault.
+Native file chooser OS chưa kiểm thử; file input/upload handler đã đi qua browser.
+M9 vẫn complete demo cục bộ; M8 pending. T10.1–T10.6 chờ review/ROI/groups/splits/
+calibration/quality thật, T10.7 physical host NOT_RUN, T10.8 cần người thuyết trình.
+
+## Xử lý năm giới hạn kỹ thuật và chuẩn bị T10.7 — 2026-10-03
+
+| Giới hạn | Kết quả đã quan sát | Không được suy thành |
+| --- | --- | --- |
+| Incident false alarms collective stop | 22 tests; smoke 3 ứng viên →0, isolated stop vẫn 1; queue-context có xét lại khi queue rời | Accuracy tai nạn; một xe chờ đèn đỏ vẫn confounder |
+| Segment identity | 45 tests; optional geometric stitching six-MOV sampled: 11.453 tracklets →8.596 derived IDs, 2.857 links, 72.011 observations | Validated visual re-ID hoặc unique-vehicle/count quality |
+| Speed | 52 traffic/overlay tests; synthetic 40 km/h, uncalibrated null; UI tách px/s và km/h unavailable | Km/h N001/N002: calibration surveyed vẫn pending, không tự bịa marker |
+| Query Việt–Anh | 27 tests; 19-term expansion; CPU CLIP thật VI/EN cùng top-12, API hiển thị prompt | General translation hoặc relevance/Recall@K song ngữ |
+| Dispatch scalability | 48 dispatch/resources/API tests; actual CLI 25 assignments/0 unmet; SciPy 1.17.1; 10×10 legacy parity | Mọi 100×100 scenario dưới 1 giây hay điều động thực tế |
+
+Allocate 25×25 đo ba lần 0,891/0,404/0,412 giây, median 0,412 giây.
+MILP hỗ trợ 100 team/100 demand, optimal zero-gap numerical certificate và
+integer validation; không symbolic proof. Decimal-scaled travel có guard
+`2**40`; thiếu SciPy/precision không an toàn chỉ fallback legacy có cảnh báo
+khi cả team/demand ≤12, ngoài phạm vi hoặc certificate lỗi thì fail closed.
+Evidence: `outputs/tests/limits-step2-tests.txt`,
+`outputs/tests/limits-stitched-real-current/stitch_state.json`,
+`outputs/tests/limits-step3-tests.txt`, `outputs/tests/limits-step4-tests-final.txt`,
+`outputs/tests/limits-step5-tests-final.txt`, `outputs/tests/limits-milp-benchmark.json`.
+Full core tại mốc năm giới hạn: 347 tests, 346 passed/1 skipped; counts/benchmarks bên dưới là lịch sử.
+
+One-command `scripts/Test-SecondMachineHandover.ps1` nhận inventory gốc và
+hostname origin, optional manifest/fresh output/expected commit; chạy Windows
+dependency/CUDA FP16/NMS/compile/core verification và đóng gói nguồn SHA
+trước/sau, snapshot/log/JSON/ZIP. [Handover](CCTV_HANDOVER.md) ghi cách transfer
+và chạy. Local rehearsal đã đạt: **347 tests, 1 skip** (OS không cho tạo
+directory symlink), pip check/compile/CUDA FP16/NMS đạt. ZIP kiểm tra đủ SHA
+của 10 members; raw giữ hash/mtime và working-copy code giữ SHA trong lượt kiểm chứng.
+Evidence: `outputs/limits-handover-verified/`; **không phải máy thứ hai**.
+Same host giữ `NOT_RUN`; khác hostname chỉ ghi identity differs, technical pass
+là `PENDING_HUMAN_VERIFICATION`, không chứng minh host vật lý độc lập.
+Full-process pipeline/UI trên host vật lý khác vẫn cần người nghiệm thu.
+
+M8/T10.4 cần hai reviewer thật; T10.2 cần ROI approval; T10.3 cần recording
+groups/split verified; T10.5 cần measured calibration và development labels;
+T10.6 cần independent quality evaluation; T10.7 cần host vật lý khác.
+Forms/raw/review journals giữ nguyên, `quality_metrics=null`,
+`physical_host_verified=false`, `operational_ready=false`, M8 `PENDING`.
+Sealed dispatch-v1 giữ làm lịch sử; sau cutover dispatch-v2 phải regenerate
+snapshot/publication vào output mới và trỏ demo store tới chúng, không sửa seal.
+Ma trận/giới hạn chi tiết: [báo cáo hiện hành](CCTV_PROJECT_REPORT.md).
+
+### Smoke full-process có recovery, không phải cold one-click pass
+
+Browser upload H.264 test-pattern 12 giây, ROI pending, full video 2 FPS:
+run `run-81fa3365fdf1491b830875d9bf5c3001` đạt 12/12 sau recovery;
+24 index/tracking frames, 6 traffic windows, query Việt trả 12 kết quả và
+prompt diễn giải. Overlay decode/seek 11 giây readyState=4; nút report trả
+ZIP HTTP 200, CRC hợp lệ, 34 members. Source giữ SHA/mtime so với inventory.
+Ba demo dispatch-v2 phục vụ đúng 1/2, 0/0 và review-gated 0/1 assignments/unmet.
+
+**Cold run ban đầu chưa đạt:** stage CLIP load hai lần native access violation
+`3221225477`, stack tại `torch/storage.py:466` khi Transformers load checkpoint.
+Dừng owned server rồi index CUDA standalone đạt 24 vectors; restart server và
+UI **Thử lại** hoàn tất các stages còn lại. Root cause chưa xác định; không
+coi recovery này là sửa loader hoặc chứng minh cold one-click chạy ổn định.
+Không đổi pagefile, CPU fallback hoặc review gates để che lỗi.
+Evidence: `outputs/tests/limits-e2e-smoke.json`, `limits-e2e-report.zip` trong
+cùng folder; console log giữ nguyên trong run. Owned server/browser đã dừng.
+
+
 ## Benchmark Colab sáu MOV hoàn tất — 2026-10-02
 
 Đã đo tracking toàn bộ sáu raw MOV trên Tesla T4, cùng source identity,
@@ -354,7 +463,8 @@ Xem `CCTV_REVIEW_PREPARATION.md`; notes/nhãn thật chưa được cung cấp.
 duyệt và ngưỡng chưa hiệu chỉnh. T4.1 evidence/review đã hoàn tất trong phạm vi
 CLI. T4.2 có baseline rule/fixtures và evaluation protocol; chưa nghiệm thu
 nhận diện tai nạn. T5.1 đã có schema khu vực/nguồn lực mô phỏng.
-T5.2 đã có bộ gợi ý bounded exact bằng CLI, toàn bộ nguồn lực vẫn mô phỏng.
+T5.2 có MILP số học certified đến 100 team/100 demand, warned legacy fallback
+chỉ khi cả hai ≤12; toàn bộ nguồn lực vẫn mô phỏng.
 T6.1 evaluator và T6.2 frozen runtime benchmark đã có; nhãn độc lập và
 recording grouping vẫn chưa xác nhận.
 T6.3 đã có gói bàn giao/báo cáo và checklist. Bước nghiệm thu tiếp theo:
@@ -377,16 +487,16 @@ không tự suy vị trí, thời gian tuyệt đối hoặc hiệu chuẩn tố
 | --- | --- |
 | T3.1: schema/ROI — đã có | Validate ROI và locator; kiểm thử cấu hình hợp lệ/lỗi; N001/N002 chưa duyệt |
 | T3.2: phát hiện xe — đã có | FP16, batch giới hạn, checkpoint và sáu previews; đủ 7.232 frames, resume/hash/VRAM đã kiểm tra |
-| T3.3: tracking — đã có baseline clip | Frame liên tiếp/PTS từ video gốc, ID theo scope segment, checkpoint/replay, 12 previews; chưa có nhãn hoặc benchmark tracking |
-| T3.4: congestion — đã có baseline demo | Count/union occupancy, pixel motion/PTS, cửa sổ có coverage và persistence; draft mode rõ ràng, ROI review và hiệu chỉnh ngưỡng bằng nhãn còn mở |
-| T3.5: API/UI giao thông — đã có baseline | ROI tham chiếu, chỉ số, timeline và evidence; T9.3 bổ sung overlay tracking trực tiếp với provenance/offset riêng |
+| T3.3: tracking — đã có baseline và optional stitching | Native frames/PTS, scoped segment IDs/checkpoint; derived geometric IDs tùy chọn, không validated visual re-ID/count quality |
+| T3.4: congestion/speed — đã có kỹ thuật | Count/union occupancy, px/s, coverage/persistence; surveyed homography tùy chọn cho km/h, N001/N002 pending/null, ROI/threshold quality chưa hiệu chỉnh |
+| T3.5: API/UI giao thông — đã có baseline | ROI, timeline/evidence/overlay; UI tách px/s và km/h unavailable khi không calibration |
 | T4.1: event evidence/review — đã có nền CLI | Schema ứng viên/demo, frame/PTS thật, package immutable, video checkpoint, journal review riêng và CAS; 0 ứng viên dữ liệu hiện có, 1 case tổng hợp để test |
-| T4.2: nghi sự cố — đã có baseline | Move-then-stop theo scoped tracks/PTS, schema v2, 10 fixtures và protocol nhãn/split/false alarms; benchmark thật và nhận diện tai nạn còn mở |
+| T4.2: nghi sự cố — có queue context | Move-then-stop scoped tracks/PTS, lọc collective stop/queue và xét lại; xe đơn lẻ đèn đỏ còn confounder, footage quality pending |
 | T5.1: nguồn lực — đã có cấu hình mô phỏng | Zone/team/skills/allowed zones, availability, directed travel, budget/reserve; schema và report/resume chạy thử, không gán vị trí thật |
-| T5.2: gợi ý phân bổ — đã có baseline CLI | Exact priority/travel/staff objective trong giới hạn 12 team/demand; cap/reserve/skills và unmet reasons, v1/v2 review gate, giữ flags demo; không điều động thực tế |
+| T5.2: gợi ý phân bổ — có MILP CLI | 100×100 numerical certified priority/travel/staff/tie-break; guards/fail closed, warned fallback cả hai ≤12, cap/reserve/skills/review gates giữ nguyên; không điều động |
 | T6.1: annotation/splits/evaluator — đã có công cụ | Source-bound labels, review/coverage validation, group/camera leakage checks, exact weighted IoU matching, metrics và fixtures; chưa có nhãn thật để chấm chất lượng |
 | T6.2: runtime benchmark — đã có kỹ thuật | Frozen workload/input/model/index/code, 120 HTTP samples, P50/P95 và lỗi, case checkpoint; relevance/event quality thiếu nhãn |
-| T6.3: bàn giao — đã chuẩn bị | Báo cáo, exporter checksum/resume và quy trình rebuild/checklist; máy thứ hai NOT_RUN, benchmark nhãn thật vẫn cần thực hiện |
+| T6.3: bàn giao — tooling đã smoke local | One-command Windows/source/environment package đạt; 347 tests/1 skip, ZIP SHA verified; physical second-machine NOT_RUN |
 | T7.1: event UI — đã có chỉ đọc | Event/review state, source guards, synthetic/empty/unavailable states và video evidence; không ghi review |
 | T7.2: phân bổ UI — đã có chỉ đọc | Đọc simulation report, cap/reserve, assignments/unmet reasons; cấu hình/journal đổi thì snapshot cũ không khả dụng |
 | T7.3: nghiệm thu demo — đạt kỹ thuật cục bộ | HTTP/browser smoke và latency mới đã có; giữ benchmark lịch sử, chưa có nhãn thật/máy thứ hai |

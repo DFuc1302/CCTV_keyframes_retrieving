@@ -22,9 +22,17 @@ Nếu cổng thuộc ứng dụng khác, launcher báo lỗi và giữ nguyên �
    Mặc định tracking toàn video, lấy một frame mỗi 0,5 giây. Chế độ theo khoảng
    dùng chung cho mọi video, dài 1–60 giây; vẫn có lựa chọn xử lý mọi frame.
    Lưu chuẩn bị. ROI giữ trạng thái pending.
-3. Bấm **Chạy toàn bộ pipeline**. Nếu thiếu weights, dùng nút tải mô hình.
-   Theo dõi tiến độ, nhật ký; **Dừng** giữ checkpoint và **Thử lại** tiếp tục
-   cùng recipe. Muốn đổi cấu hình, lưu chuẩn bị rồi chạy một run mới.
+3. Chọn một trong **hai tùy chọn xử lý video**:
+   - **Tùy chọn A — Chạy trên thiết bị (On-Device)**:
+     Bấm **Chạy toàn bộ pipeline**. Hệ thống sử dụng GPU/CPU máy cục bộ tuần tự qua 12 công đoạn.
+     Nếu thiếu weights, dùng nút **Tải mô hình còn thiếu**.
+     Theo dõi tiến độ và nhật ký; nút **Dừng** giữ checkpoint và **Thử lại** tiếp tục từ điểm dừng.
+   - **Tùy chọn B — Chạy qua Google Colab (Cloud GPU)**:
+     Chuyển sang tab **Chạy qua Google Colab (Cloud GPU)**:
+     1. Bấm **Xuất job Colab (.zip)** để tải gói tác vụ chứa video, ROI và mã nguồn.
+     2. Bấm **Mở notebook Colab ↗** để mở Google Colab (chạy trên GPU Tesla T4 miễn phí), đưa file zip lên và chạy tự động.
+     3. Sau khi Colab hoàn tất và tải về file `.result.zip`, quay lại UI và bấm **Chọn file kết quả** tại mục Nhập kết quả Colab.
+        Hệ thống tự động kiểm tra toàn vẹn SHA256 và kích hoạt toàn bộ kết quả vào giao diện.
 4. Mở kết quả trong các tab: tìm keyframe bằng text/ảnh, xem video tại mốc
    tương ứng, traffic windows, ROI và video tracking bbox/ID.
 5. Trong **Sự kiện & evidence**, chọn case tổng hợp, nhập reviewer/lý do và
@@ -71,10 +79,20 @@ git push origin main
 ```
 
 Backend gọi lại 12 CLI stage hiện có, không thay schema hoặc guard bảo vệ
-dữ liệu. Dataset/job dùng JSON; một worker local tuần tự giải phóng CLIP
-phục vụ trước khi index/tracking dùng GPU. CLIP FP16 batch 4, tracking theo
+dữ liệu. Dataset/job dùng JSON; một worker local tuần tự dừng và chờ process
+CLIP phục vụ thoát trước khi index/tracking dùng GPU. Coordinator không import
+Torch; model/ CUDA context thuộc process `ProcessClipEncoder`, vector CPU và
+ảnh PIL đi qua IPC. CLI vẫn dùng cùng weights, CUDA FP16 và batch 4; tracking theo
 segment. Generated files nằm trong `outputs/ui-workflow/<dataset>/run-*/`;
 cấu hình trong `run-*/configs`, tách khỏi thư mục output của các stage.
+
+Windows đặt mặc định `OPENBLAS_NUM_THREADS=2` và `OMP_NUM_THREADS=2` trước khi
+import thư viện số để giới hạn private commit của native thread pools. Giá trị
+operator đã đặt được giữ nguyên; thay đổi này không sửa pagefile hoặc tự fallback
+CPU. RSS/GPU allocator trống không chứng minh Windows system commit đã giải phóng.
+Smoke lifecycle CUDA: coordinator ~215 MiB private, worker thoát exit=0 trước CLI
+loader; vector text/image so với loader trực tiếp có max error=0. Evidence:
+`outputs/tests/m11-process-lifecycle.json`. Latency cũ không phải phép đo IPC mới.
 
 Upload tạo bản sao riêng; demo có sẵn tham chiếu `Demo_Data` chỉ đọc.
 Mutation yêu cầu same-origin; giới hạn JSON 64 KiB, filename và đường dẫn
@@ -108,10 +126,15 @@ Kiểm thử hồi quy: **264 core tests đạt**, pip check/compile/CUDA FP16/N
 Ruff và kiểm tra cú pháp JavaScript đạt. PowerShell đọc launcher từ disk bằng
 parser Windows PowerShell để bắt lỗi encoding/terminator.
 
-Browser automation không kiểm thử hoàn tất native file chooser vì extension
-Chrome chưa có quyền file URL; upload API và backend đã kiểm thử bằng file thật.
-Không thay quyền browser tự động. Người dùng mở UI bằng Chrome thông thường
-không cần extension để chọn file.
+Smoke mới 2026-10-03 dùng file input trong managed Chromium: upload H.264 12 giây,
+pending ROI/toàn video 2 FPS, 12/12 stage lần đầu không retry/recovery; text/image
+mỗi loại 12 kết quả, source/overlay readyState=4, report ZIP HTTP200/CRC đạt.
+Evidence: `outputs/tests/m11-cold-smoke.json`; không đo chất lượng trên test-pattern.
+44 focused tests đạt; full Windows verification: 353 tests, 352 passed/1 skipped
+(directory symlink bị OS từ chối); pip check/compile/CUDA FP16/NMS đạt.
+Logs: `outputs/tests/m11-process-core-tests.txt`, `m11-regression.json`.
+Native hộp thoại file chooser OS vẫn chưa kiểm thử; không thay quyền browser.
+Người dùng mở UI bằng Chrome thông thường không cần extension để chọn file.
 
 ```powershell
 git add app/cctv.py app/cctv_workflow.py static/cctv scripts/Open-CctvDemo.ps1 scripts/Test-Windows.ps1 Open-CctvDemo.cmd test_cctv_workflow.py test_powershell_scripts.py README.md docs/CCTV_UI_WORKFLOW.md docs/CCTV_PROGRESS.md

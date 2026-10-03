@@ -23,7 +23,13 @@ from pipeline.cctv.search import CctvSearch
 from pipeline.cctv.traffic import Contract
 
 ROOT = Path(__file__).resolve().parents[2]
-SERVER_CODE = ("app/cctv.py", "pipeline/cctv/clip.py", "pipeline/cctv/search.py")
+SERVER_CODE = (
+    "app/cctv.py",
+    "pipeline/cctv/__init__.py",
+    "pipeline/cctv/clip.py",
+    "pipeline/cctv/clip_process.py",
+    "pipeline/cctv/search.py",
+)
 
 
 class QueryCase(Contract):

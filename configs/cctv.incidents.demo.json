@@ -7,5 +7,9 @@
   "max_gap_sec": 0.5,
   "confidence_min": 0.4,
   "box_area_min": 0.0002,
-  "max_box_scale_ratio": 1.5
+  "max_box_scale_ratio": 1.5,
+  "queue_filter_enabled": true,
+  "neighbor_radius_diagonals": 3.0,
+  "min_queue_neighbors": 2,
+  "stop_sync_window_sec": 2.0
 }

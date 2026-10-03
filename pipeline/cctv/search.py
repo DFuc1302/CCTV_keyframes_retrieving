@@ -12,6 +12,8 @@ import faiss
 import numpy as np
 from PIL import Image
 
+from app.query_hints import expand_bilingual_query
+
 from pipeline.cctv.clip import ClipEncoder
 from pipeline.cctv.index import PIPELINE, check_vector, model_recipe
 from pipeline.cctv.ingest import digest
@@ -131,7 +133,8 @@ def main() -> int:
                     raise ValueError("Query model must match the indexed model")
             encoder = ClipEncoder(model, args.device)
             if args.query:
-                vector = encoder.text(args.query)
+                prompt, _ = expand_bilingual_query(args.query)
+                vector = encoder.text(prompt)
             else:
                 with Image.open(args.image) as image:
                     rgb = image.convert("RGB")

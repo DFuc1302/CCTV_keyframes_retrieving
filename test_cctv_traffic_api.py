@@ -92,6 +92,36 @@ class TrafficApiTests(unittest.TestCase):
         self.assertEqual(api_module.ApiEncoder.loaded, 1)
         self.assertEqual(before, {p: (digest(p), p.stat().st_mtime_ns) for p in before})
 
+    def rewrite_window_ledger(self, mutate):
+        path = self.metrics.output / "windows.jsonl"
+        rows = [json.loads(line) for line in path.read_text().splitlines()]
+        for row in rows:
+            mutate(row)
+        path.write_text("".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
+        state_path = self.metrics.output / "window_state.json"
+        state = json.loads(state_path.read_text())
+        state["artifacts"]["windows.jsonl"] = digest(path)
+        state_path.write_text(json.dumps(state), encoding="utf-8")
+
+    def test_historical_windows_missing_metric_defaults_load_without_rewriting(self):
+        def historical(row):
+            row.pop("median_speed_kmh")
+            row.pop("calibration_sha256")
+        self.rewrite_window_ledger(historical)
+        path = self.metrics.output / "windows.jsonl"
+        before = (digest(path), path.stat().st_mtime_ns)
+        client = self.client()
+        self.assertTrue(client.get("/cctv/traffic").json()["available"])
+        self.assertEqual(before, (digest(path), path.stat().st_mtime_ns))
+
+    def test_window_normalization_preserves_unknown_field_and_value_rejection(self):
+        self.rewrite_window_ledger(lambda row: row.update(unknown_metric=1))
+        self.assertFalse(self.client().get("/cctv/traffic").json()["available"])
+
+    def test_window_normalization_preserves_ledger_mismatch_rejection(self):
+        self.rewrite_window_ledger(lambda row: row.update(median_speed_kmh=40))
+        self.assertFalse(self.client().get("/cctv/traffic").json()["available"])
+
     def test_missing_traffic_does_not_disable_retrieval(self):
         client = self.client(self.track.root / "missing")
         self.assertEqual(client.get("/ready").status_code, 200)

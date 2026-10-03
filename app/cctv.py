@@ -24,7 +24,8 @@ from app.cctv_dispatch import DispatchPackage, DispatchStore
 from app.cctv_events import EventStore
 from app.cctv_overlay import OverlayStore
 from app.cctv_traffic import TrafficStore
-from pipeline.cctv.clip import ClipEncoder
+from app.query_hints import expand_bilingual_query
+from pipeline.cctv.clip_process import ProcessClipEncoder
 from pipeline.cctv.index import model_recipe
 from pipeline.cctv.ingest import digest
 from pipeline.cctv.manifest import identity, relative_video
@@ -37,7 +38,7 @@ LOG = logging.getLogger("cctv.api")
 
 
 class Runtime:
-    """One pinned CLIP instance; serialize GPU requests and close it on shutdown."""
+    """Serialize queries; exit the serving encoder process before GPU stages."""
 
     def __init__(
         self,
@@ -45,7 +46,7 @@ class Runtime:
         model_config: Path,
         preview: Path,
         device: str,
-        encoder_factory=ClipEncoder,
+        encoder_factory=ProcessClipEncoder,
     ) -> None:
         self.index_dir, self.model_config, self.preview_dir = (
             index,
@@ -120,7 +121,9 @@ class Runtime:
                     name: digest(ROOT / name)
                     for name in (
                         "app/cctv.py",
+                        "pipeline/cctv/__init__.py",
                         "pipeline/cctv/clip.py",
+                        "pipeline/cctv/clip_process.py",
                         "pipeline/cctv/search.py",
                     )
                 },
@@ -133,10 +136,8 @@ class Runtime:
                 },
             }
             if self.device == "cuda":
-                import torch
-
-                self.benchmark_identity["gpu"] = torch.cuda.get_device_name()
-                self.benchmark_identity["cuda_build"] = torch.version.cuda
+                self.benchmark_identity["gpu"] = self.encoder.gpu
+                self.benchmark_identity["cuda_build"] = self.encoder.cuda_build
             self.ready, self.error = True, None
         except Exception as exc:
             self.error = str(exc)
@@ -144,7 +145,7 @@ class Runtime:
             self.close()
 
     def close(self) -> None:
-        """Release the only model; retain readiness failure for diagnostics."""
+        """Wait for model process exit; retain readiness failure for diagnostics."""
         self.ready = False
         if self.encoder is not None:
             self.encoder.close()
@@ -197,7 +198,13 @@ class Runtime:
                 raise HTTPException(
                     503, "Đang xử lý dữ liệu; tìm kiếm sẽ sẵn sàng sau khi hoàn tất."
                 )
-            return self.results(self.encoder.text(query), top_k)
+            prompt, terms = expand_bilingual_query(query)
+            response = self.results(self.encoder.text(prompt), top_k)
+            response.update(
+                translated_prompt=prompt if terms else None,
+                translated_terms=terms,
+            )
+            return response
 
     def image(self, payload: bytes, top_k: int) -> dict:
         """Validate/decode in memory only; do not persist query images."""
@@ -234,7 +241,7 @@ def create_app(
     model_config: Path | None = None,
     preview_dir: Path | None = None,
     device: str | None = None,
-    encoder_factory=ClipEncoder,
+    encoder_factory=ProcessClipEncoder,
     traffic_dir: Path | None = None,
     tracking_dir: Path | None = None,
     roi_preview_dir: Path | None = None,
@@ -243,6 +250,7 @@ def create_app(
     overlay_dir: Path | None = None,
     overlay_manifest: Path | None = None,
     workflow_dir: Path | None = None,
+    stitched_dir: Path | None = None,
 ) -> FastAPI:
     """Build the CCTV demo using independent config; legacy app remains available."""
     runtime = Runtime(
@@ -334,7 +342,7 @@ def create_app(
 
     dispatch_packages = {
         "simulation": DispatchPackage(
-            ROOT / "outputs/demo-data/dispatch-simulation-v1",
+            ROOT / "outputs/demo-data/dispatch-simulation-v2",
             ROOT / "configs/cctv.demands.simulation.json",
         )
     }
@@ -342,13 +350,13 @@ def create_app(
         (
             "events_empty",
             "incidents",
-            "dispatch-events-empty-v1",
+            "dispatch-events-empty-v2",
             "configs/cctv.demands.events.json",
         ),
         (
             "review_gate",
             "demo",
-            "dispatch-review-gate-v1",
+            "dispatch-review-gate-v2",
             "outputs/demo-data-review/dispatch-event-request.json",
         ),
     ):
@@ -410,6 +418,10 @@ def create_app(
         ),
         traffic.tracking,
         overlay_manifest or ROOT / "configs/cctv.demo.json",
+        stitched_dir or (
+            Path(os.environ["CCTV_STITCHED_DIR"])
+            if os.environ.get("CCTV_STITCHED_DIR") else None
+        ),
     )
 
     @asynccontextmanager

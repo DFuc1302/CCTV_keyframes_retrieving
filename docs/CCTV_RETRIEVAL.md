@@ -37,6 +37,38 @@ camera_id, timestamp tương đối và decoded frame_idx. Chưa có multimodal 
 hoặc nhận diện sự kiện. Demo FastAPI riêng đã kết nối text/image/video, xem
 `CCTV_DEMO_UI.md`; composition/readiness legacy vẫn giữ nguyên.
 
+### Truy vấn Việt–Anh theo miền CCTV
+
+`app/query_hints.py` cung cấp `expand_bilingual_query`: từ vựng cố định gồm
+19 cụm CCTV (tai nạn/va chạm, tắc đường/kẹt xe, các loại xe, giao lộ,
+đường phố, ngày/đêm, mưa, cảnh sát, dừng lại, quay đầu). Matching dùng NFC,
+casefold, ranh giới từ Unicode và ưu tiên cụm dài nhất; cụm đã match được
+thay bằng mô tả tiếng Anh. Ví dụ `xe máy ban đêm` thành
+`motorcycle motorbike night nighttime dark`; `tắc đường ngã tư` thành
+`traffic jam congestion slow traffic road intersection crossroad`.
+
+Đây là hỗ trợ từ vựng miền, không phải dịch máy tổng quát. Cụm không biết
+vẫn còn trong prompt; khi có match, phần chưa dịch được chuẩn hóa NFC/casefold,
+nên truy vấn hỗn hợp có thể vẫn chứa tiếng Việt. Không có match thì helper
+giữ nguyên chính xác truy vấn, kể cả chữ hoa/khoảng trắng (HTTP/UI vẫn áp dụng
+trim sẵn có). Không suy diễn ý nghĩa hoặc bổ sung từ cho cụm ngoài từ vựng.
+
+CLI và API encode **chỉ prompt đã diễn giải**, không lấy trung bình với vector
+truy vấn gốc và không nạp CLIP thứ hai. Với cùng encoder/index, truy vấn tiếng Việt
+đã dịch và prompt tiếng Anh tương ứng có cùng thứ hạng. HTTP text search giữ
+`results`/`total`, thêm `translated_prompt` (chuỗi khi có match, nếu không là
+`null`) và `translated_terms` (các cụm Việt duy nhất theo thứ tự xuất hiện,
+hoặc `[]`). UI hiển thị prompt này trong trạng thái kết quả bằng `textContent`;
+CLI vẫn xuất JSON dạng danh sách kết quả cũ. Image search không đổi contract.
+Thông báo nạp CLIP đi vào stderr; stdout của CLI search chỉ chứa JSON, để consumer
+có thể parse trực tiếp mà không phải cắt bỏ các dòng startup.
+
+Không sửa ảnh, stored vectors hoặc index cũ; không cần migration/model mới.
+Các regression tests dùng index RGB synthetic có distractors để kiểm tra thứ hạng
+và metadata, không đo recall đa ngôn ngữ thực tế. Chưa có relevance labels độc lập
+hoặc đánh giá recall Việt–Anh trên video thật; không coi domain expansion là bằng
+chứng CLIP hiểu tiếng Việt tổng quát.
+
 ## Chạy Windows
 
 ```powershell

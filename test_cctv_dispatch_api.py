@@ -77,6 +77,33 @@ class DispatchApiTests(unittest.TestCase):
         self.assertEqual(client.post("/cctv/dispatch/simulation").status_code, 405)
         self.assertEqual(client.get("/cctv/dispatch/unknown").status_code, 404)
 
+    def test_large_competing_proposal_served_as_readonly_simulation(self):
+        self.fixture.competing_scenario(25)
+        save_json(self.fixture.fixture.config, self.fixture.payload)
+        save_json(self.fixture.demand_path, self.fixture.scenario)
+        output = self.fixture.root / "large-proposal"
+        self.fixture.run_pipeline(output)
+        self.store.packages = {
+            "large": DispatchPackage(output, self.fixture.demand_path)
+        }
+        response = self.client().get("/cctv/dispatch/large")
+        self.assertEqual(response.status_code, 200)
+        report = response.json()
+        self.assertEqual(report["assigned_officers"], 25)
+        self.assertEqual(report["available_officers_remaining"], 0)
+        self.assertEqual(report["unmet_demands"], [])
+        self.assertEqual(report["total_simulated_travel_sec"], 0.0)
+        self.assertEqual(
+            {a["demand_id"]: a["units"] for a in report["assignments"]},
+            {
+                **{f"A-SCENE-{i:03d}": [f"TEAM-{13 + i:03d}"] for i in range(12)},
+                **{f"B-TRAFFIC-{i:03d}": [f"TEAM-{i:03d}"] for i in range(13)},
+            },
+        )
+        self.assertTrue(report["read_only"] and report["dry_run"])
+        self.assertTrue(report["fictional_resource_data"] and report["reserve_met"])
+        self.assertFalse(report["operational_ready"])
+
     def test_stale_resource_or_demands_unavailable_retrieval_survives(self):
         client = self.client()
         for path in (self.fixture.fixture.config, self.fixture.demand_path):
@@ -102,6 +129,8 @@ class DispatchApiTests(unittest.TestCase):
             "busy",
             "duplicate",
             "staff",
+            "partial_team",
+            "reserve",
             "travel",
             "flags",
             "coverage",
@@ -114,6 +143,12 @@ class DispatchApiTests(unittest.TestCase):
                 value["assignments"][0]["units"] *= 2
             elif modification == "staff":
                 value["assigned_officers"] = 4
+            elif modification == "partial_team":
+                value["assignments"][0]["officers"] = 1
+                value["assigned_officers"] = 1
+                value["available_officers_remaining"] = 3
+            elif modification == "reserve":
+                value["required_reserve_officers"] = 0
             elif modification == "travel":
                 value["total_simulated_travel_sec"] = 90
             elif modification == "flags":

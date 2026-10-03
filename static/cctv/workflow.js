@@ -177,6 +177,18 @@ $("workflow-save").onclick=()=>workflowAction(async()=>{
   const cameras=Object.fromEntries(Array.from(document.querySelectorAll("[data-workflow-video]")).map(input=>[input.dataset.workflowVideo,input.value.trim()]));
   await workflowApi(`/cctv/workflow/${workflowData.id}/prepare`,{cameras,rois:workflowRois,start_sec:Number($("workflow-start").value),duration_sec:Number($("workflow-duration").value),tracking_scope:$("workflow-scope").value,tracking_mode:$("workflow-tracking-mode").value,synthetic_case:$("workflow-synthetic").checked});
 });
+const setExecutionMode=mode=>{
+  const isDevice=mode==="device";
+  $("mode-device-btn")?.classList.toggle("active",isDevice);
+  $("mode-device-btn")?.setAttribute("aria-selected",isDevice);
+  $("mode-colab-btn")?.classList.toggle("active",!isDevice);
+  $("mode-colab-btn")?.setAttribute("aria-selected",!isDevice);
+  const devPanel=$("execution-device-panel"), colabPanel=$("execution-colab-panel");
+  if(devPanel) devPanel.hidden=!isDevice;
+  if(colabPanel) colabPanel.hidden=isDevice;
+};
+$("mode-device-btn").onclick=()=>setExecutionMode("device");
+$("mode-colab-btn").onclick=()=>setExecutionMode("colab");
 for(const [id,payload] of [["workflow-run",{}],["workflow-models",{download:true}],["workflow-retry",{retry:true}]]) $(id).onclick=()=>workflowAction(async()=>{ await workflowApi(`/cctv/workflow/${workflowData.id}/jobs`,payload); await checkReady(); });
 $("workflow-stop").onclick=()=>workflowAction(()=>workflowApi("/cctv/workflow/stop",{}));
 $("workflow-activate").onclick=()=>workflowAction(async()=>{ ready=false; setBusy(false); $("status").textContent="Đang mở bộ dữ liệu…"; try { await workflowApi(`/cctv/workflow/${workflowData.id}/activate`,{}); await refreshTraffic(); await refreshEvents(); await refreshDispatch(); selectSection("search"); $("workflow-panel").open=false; } finally { await checkReady(); } });

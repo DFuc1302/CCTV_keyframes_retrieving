@@ -9,6 +9,15 @@ luôn dùng toàn video. **Mọi frame** là lựa chọn khi cần tracking dà
 Overlay 2 FPS có thể giật, bỏ lỡ chuyển động nhanh; ID và rules chưa hiệu chỉnh
 cho dữ liệu thật. ROI và M8 vẫn pending, dispatch chỉ mô phỏng.
 
+Cold Windows UI smoke lịch sử gặp native access violation khi CLIP load checkpoint,
+không phải batch YOLO OOM. Probe đo Windows1455/commit exhaustion; hiện serving
+CLIP thuộc process riêng, thoát trước stage GPU, với bounded native thread defaults.
+Fresh browser upload H.264 test-pattern 12 giây đã đạt 12/12 lần đầu, không
+standalone indexing/retry; weights, FP16, loader và pagefile không thay.
+Đây là cold local smoke, không chứng minh quality/SLA. Logs và gates:
+[progress](CCTV_PROGRESS.md#m11--cold-ui-pipeline-đạt-sau-sửa-ownershipcommit--2026-10-03).
+
+
 ## Thiết kế và tối ưu
 
 - Decode bằng generator, chọn frame theo PTS, inference YOLO tối đa 4 ảnh/batch.

@@ -21,8 +21,9 @@ frame trước start giúp giữ locator thống nhất với extraction legacy.
 time_base; kiểm thử video tổng hợp có frame bị bỏ và PTS không đều xác nhận
 pipeline vẫn giữ thời gian thật. Không suy thời gian tuyệt đối từ chữ trên ảnh.
 
-Chỉ giữ một frame inference và một ảnh preview; batch tracking là 1 vì trạng
-thái tracker phụ thuộc thứ tự. Segment giữ tối đa 2.000 payload frame; cần
+Detection batch tối đa 4 ảnh; ByteTrack association vẫn cập nhật từng frame
+theo thứ tự. Giữ tối đa bốn ảnh inference và một ảnh preview. Segment giữ
+tối đa 2.000 payload frame; cần
 giảm segment-seconds nếu nguồn FPS cao vượt giới hạn. Không lưu video overlay
 đầy đủ vào RAM. Model được giải phóng và CUDA cache được dọn ở cuối stage.
 Không chạy stage này đồng thời với một CLIP server trên GPU 8GB.
@@ -83,12 +84,71 @@ Get-Content outputs\demo-data\tracking-clips\tracking_manifest.json
 
 Chạy lại lệnh tracking để resume. Có thể lọc `--video-id N001-V001` hoặc chạy
 `--full-video` thay cho `--duration-sec`; mỗi phạm vi mới dùng output-dir mới.
-Chưa nghiệm thu tracking toàn bộ 60 phút dữ liệu. Chạy bộ unit tests riêng:
+Tracking toàn bộ sáu MOV đã đo ở native và 2 FPS ngày 2026-10-02; xem
+[so sánh runtime](CCTV_FULLVIDEO_COLAB.md#so-sánh-native-mọi-frame-với-2-fps--2026-10-02).
+Chưa có benchmark chất lượng tracking. Chạy bộ unit tests riêng:
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\run_python_logged.py `
   --log outputs\tests\tracking-tests.txt -- -m unittest test_cctv_track -v
 ```
+
+## Nối track hậu xử lý và overlay tùy chọn
+
+Tracking gốc vẫn reset ByteTrack theo segment và giữ nguyên tuple ID local.
+Stage CPU hậu xử lý chỉ đọc publication tracking đã hoàn tất, tạo output riêng:
+
+```powershell
+.\.venv\Scripts\python.exe -m pipeline.cctv.stitch `
+  --tracking-dir outputs\demo-data\tracking-clips `
+  --output-dir outputs\demo-data\stitched-clips `
+  --max-gap-sec 1.0 --max-distance-diagonals 2.5
+
+.\.venv\Scripts\python.exe -m pipeline.cctv.tracking_overlay `
+  --manifest configs\cctv.demo.json `
+  --tracking-dir outputs\demo-data\tracking-clips `
+  --stitched-dir outputs\demo-data\stitched-clips `
+  --output outputs\demo-data\stitched-overlays --width 960
+```
+
+`stitched_tracks.jsonl` giữ observations gốc và bổ sung `global_track_id`;
+`stitched_mapping.json` ánh xạ đầy đủ
+`(run_id, camera_id, video_id, segment_id, track_id)` sang ID số dẫn xuất.
+`stitch_state.json` niêm phong hashes artifacts, input tracking, code và settings.
+Không sửa raw video, ledger tracking hay ID local. Chỉ nối giữa các segment
+kề nhau trong cùng run/camera/video, không nối giữa camera hoặc video.
+
+Nối dựa trên PTS thật, cửa sổ endpoint một giây, vận tốc từ tối đa ba mẫu,
+residual dự đoán chuẩn hóa theo đường chéo bbox, class, diện tích và aspect.
+Assignment có lựa chọn unmatched; cặp không hợp lệ và liên kết mơ hồ bị loại.
+Đây là **giả thuyết hình học, chưa phải re-identification đã kiểm chứng**:
+che khuất, đổi hướng, nhầm car/truck hoặc xe gần nhau vẫn có thể gây split/link sai.
+Không dùng số global ID làm số xe thật hoặc bằng chứng IDF1/HOTA; stage này
+không thay đổi continuity của congestion/incident analytics.
+
+Không truyền `--stitched-dir` thì overlay vẫn hiện ID local như trước.
+Khi bật, nhãn `GLOBAL`, màu theo global ID và banner `GEOMETRIC STITCHED IDs /
+NOT VALIDATED RE-ID / ROI PENDING` phân biệt rõ output dẫn xuất;
+`id_scope=derived_global_track_id/geometric_hypothesis`.
+Mapping thiếu, khác run/input, publication chưa hoàn tất hoặc bị sửa đều báo lỗi,
+không tự rơi về ID local. Overlay vẫn H264 CPU và giữ timeline native PTS.
+Resume ràng buộc cả code stitch và artifacts đã niêm phong; đổi chế độ,
+settings hoặc inputs cần output mới. Không đặt output overlay bên trong
+tracking, stitching, raw hoặc source/config package.
+
+Để phục vụ overlay dẫn xuất trong UI, cấu hình cả hai thư mục trước khi khởi động:
+
+```powershell
+$env:CCTV_OVERLAY_DIR = 'outputs\demo-data\stitched-overlays'
+$env:CCTV_STITCHED_DIR = 'outputs\demo-data\stitched-clips'
+.\scripts\Start-CctvDemo.ps1
+```
+
+HTTP store chỉ đọc mapping từ thư mục cấu hình tường minh, không tin đường dẫn
+tùy ý trong checkpoint. Artifact/mapping bị sửa làm overlay unavailable;
+retrieval và traffic độc lập vẫn hoạt động. Response giữ `id_scope` để UI
+phân biệt ID local và giả thuyết nối hình học.
+
 
 ## Bằng chứng demo ngày 2026-10-01
 

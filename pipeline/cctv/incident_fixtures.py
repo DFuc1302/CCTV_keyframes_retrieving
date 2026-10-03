@@ -24,6 +24,17 @@ CASES = {
     "timestamp_gap": 0,
     "outside_roi": 0,
     "weak_detection": 0,
+    "collective_stop": 0,
+    "collective_stop_filter_disabled": 3,
+    "queue_departure": 1,
+    "queue_last_neighbor_departure": 1,
+    "queue_lingering_neighbor": 0,
+    "far_stop": 3,
+    "opposite_direction_stop": 3,
+    "joining_queue": 0,
+    "joining_opposite_queue": 1,
+    "stationary_neighbors_without_travel": 1,
+    "one_queue_neighbor": 2,
 }
 
 
@@ -43,6 +54,10 @@ def fixture(name: str) -> tuple[list[TrackFrame], CameraROI, IncidentConfig]:
                 confidence_min=0.4,
                 box_area_min=0.0002,
                 max_box_scale_ratio=1.5,
+                queue_filter_enabled=name != "collective_stop_filter_disabled",
+                neighbor_radius_diagonals=3.0,
+                min_queue_neighbors=2,
+                stop_sync_window_sec=2.0,
             )
         )
     )
@@ -65,6 +80,8 @@ def fixture(name: str) -> tuple[list[TrackFrame], CameraROI, IncidentConfig]:
                 )
             )
         )
+    if name in QUEUE_CASES:
+        return _queue_frames(name), roi, config
     frames = []
     for n in range(14):
         x = 0.1 + 0.03 * min(n, 3)
@@ -114,6 +131,92 @@ def fixture(name: str) -> tuple[list[TrackFrame], CameraROI, IncidentConfig]:
             )
         )
     return frames, roi, config
+
+
+QUEUE_CASES = {
+    "collective_stop",
+    "collective_stop_filter_disabled",
+    "queue_departure",
+    "queue_last_neighbor_departure",
+    "queue_lingering_neighbor",
+    "far_stop",
+    "opposite_direction_stop",
+    "joining_queue",
+    "joining_opposite_queue",
+    "stationary_neighbors_without_travel",
+    "one_queue_neighbor",
+}
+
+
+def _queue_frames(name: str) -> list[TrackFrame]:
+    """Nearby vehicles share a stop, except where a named confounder changes it."""
+    joining = name in {"joining_queue", "joining_opposite_queue"}
+    count = 4 if joining else (2 if name == "one_queue_neighbor" else 3)
+    frames = []
+    for n in range(49):
+        stamp = n * 0.25
+        locator = dict(
+            camera_id="N001", video_id="N001-V001", frame_idx=n, timestamp_sec=stamp
+        )
+        observations = []
+        for track_id in range(1, count + 1):
+            if track_id != 1:
+                if name == "queue_departure" and n >= 16:
+                    continue
+                if name in {"queue_last_neighbor_departure", "queue_lingering_neighbor"}:
+                    if track_id == 2 and n >= 16:
+                        continue
+                    if name == "queue_last_neighbor_departure" and n >= 24:
+                        continue
+            offset = 0.12 * (track_id - 1)
+            x = 0.1 + offset + 0.03 * min(n, 4)
+            if name == "far_stop":
+                offset = (0.0, 0.4, 0.65)[track_id - 1]
+                x = 0.1 + offset + 0.03 * min(n, 4)
+            elif name == "opposite_direction_stop" and track_id != 1:
+                x = 0.22 + offset + 0.03 * (4 - min(n, 4))
+            elif name == "stationary_neighbors_without_travel" and track_id != 1:
+                x = 0.22 + offset
+            elif joining:
+                if track_id == 1:
+                    x = 0.1 + 0.015 * min(n, 16)
+                elif name == "joining_opposite_queue":
+                    x = 0.34 + offset + 0.03 * (4 - min(n, 4))
+                else:
+                    x = 0.34 + offset - 0.03 * (4 - min(n, 4))
+            observations.append(
+                dict(
+                    schema_version=1,
+                    kind="track",
+                    run_id="synthetic-run",
+                    segment_id="seg-000000",
+                    track_id=track_id,
+                    locator=locator,
+                    detection=dict(
+                        label="car", confidence=0.9, bbox=[x, 0.4, x + 0.08, 0.48]
+                    ),
+                )
+            )
+        frames.append(
+            TrackFrame.model_validate_json(
+                json.dumps(
+                    dict(
+                        schema_version=1,
+                        kind="track_frame",
+                        run_id="synthetic-run",
+                        segment_id="seg-000000",
+                        locator=locator,
+                        source_pts=n * 250,
+                        origin_pts=0,
+                        time_base=[1, 1000],
+                        width=1000,
+                        height=1000,
+                        observations=observations,
+                    )
+                )
+            )
+        )
+    return frames
 
 
 def evaluate_fixtures() -> dict:

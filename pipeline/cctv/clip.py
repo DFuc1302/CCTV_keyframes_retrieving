@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import gc
+import sys
 from contextlib import nullcontext
 from pathlib import Path
 from typing import Any
@@ -25,7 +26,7 @@ class ClipEncoder:
         self.device = device
         self.dtype = torch.float16 if device == "cuda" else torch.float32
         torch.set_num_threads(2)
-        print(f"Loading local CLIP on {device} ({self.dtype})...", flush=True)
+        print(f"Loading local CLIP on {device} ({self.dtype})...", file=sys.stderr, flush=True)
         self.processor = CLIPProcessor.from_pretrained(
             path, local_files_only=True, use_fast=False
         )
@@ -41,7 +42,7 @@ class ClipEncoder:
         self.dim = int(self.model.config.projection_dim)
         if device == "cuda":
             torch.cuda.reset_peak_memory_stats()
-        print(f"CLIP ready: {self.dim} dimensions", flush=True)
+        print(f"CLIP ready: {self.dim} dimensions", file=sys.stderr, flush=True)
 
     def _encode(self, inputs: dict[str, Any], kind: str) -> np.ndarray:
         """Project in FP16 on CUDA, normalize in FP32 for cosine inner product."""
@@ -75,7 +76,7 @@ class ClipEncoder:
         return self._encode(self.processor(images=images, return_tensors="pt"), "image")
 
     def text(self, query: str) -> np.ndarray:
-        """Encode English text using the model's matching text projection."""
+        """Encode a prepared text prompt using the matching text projection."""
         return self._encode(
             self.processor(text=[query], return_tensors="pt", truncation=True), "text"
         )
