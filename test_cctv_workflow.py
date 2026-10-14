@@ -13,6 +13,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.cctv_workflow import Workflow, install
+from app.security import harden
 from pipeline.cctv.ingest import save_json
 
 
@@ -30,6 +31,7 @@ class WorkflowTests(unittest.TestCase):
             "cpu",
         )
         app = FastAPI()
+        harden(app, ("http://testserver", "http://alias.test"))
         install(app, self.workflow)
         self.client = TestClient(app)
         self.origin = {"Origin": "http://testserver"}
@@ -254,6 +256,27 @@ class WorkflowTests(unittest.TestCase):
             thread.is_alive.return_value = True
             with self.assertRaisesRegex(ValueError, "Đang xử lý"):
                 self.workflow.verify_start(dataset, "http://127.0.0.1:8087")
+
+    def test_forged_host_and_origin_pair_is_rejected(self):
+        for path in ("/cctv/workflow/datasets", "/cctv/workflow/stop"):
+            response = self.client.post(
+                path,
+                json={},
+                headers={"Host": "attacker.example", "Origin": "http://attacker.example"},
+            )
+            self.assertEqual(response.status_code, 400)
+        self.assertEqual(list((self.root / "datasets").iterdir()), [])
+
+    def test_verify_uses_configured_origin_not_host_header(self):
+        dataset = self.create()
+        with patch.object(self.workflow, "verify_start") as start:
+            response = self.client.post(
+                f"/cctv/workflow/{dataset}/verify",
+                json={},
+                headers={"Host": "alias.test", "Origin": "http://alias.test"},
+            )
+            self.assertEqual(response.status_code, 200)
+            start.assert_called_once_with(dataset, "http://testserver", False)
 
 
 if __name__ == "__main__":

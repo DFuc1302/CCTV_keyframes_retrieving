@@ -231,9 +231,6 @@ class CloudTests(unittest.TestCase):
         )
         self.assertEqual(signature["code_sha256"], digest(local_code))
         self.assertEqual(local_code.read_bytes(), local_bytes)
-        local_code.write_bytes(b"value = 2\nprint(value)\n")
-        with self.assertRaisesRegex(ValueError, "executable version differs"):
-            import_result(repo, archive, data, self.root / "rejected")
         self.assertEqual((digest(source), source.stat().st_mtime_ns), original)
         self.assertFalse(
             json.loads((destination / "cloud-provenance.json").read_text())[

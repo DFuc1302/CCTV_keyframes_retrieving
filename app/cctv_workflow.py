@@ -6,6 +6,7 @@ import copy
 import io
 import json
 import os
+import re
 import shutil
 import sqlite3
 import subprocess
@@ -24,6 +25,7 @@ from pydantic import ValidationError
 from starlette.concurrency import run_in_threadpool
 from tqdm import tqdm
 
+from app.security import require_trusted_origin
 from pipeline.cctv.events import read_json
 from pipeline.cctv.ingest import digest, reject_link, save_json
 from pipeline.cctv.manifest import identity, load_manifest
@@ -36,8 +38,7 @@ LIMIT = 1024**3
 
 async def read_payload(request: Request) -> dict:
     """Bound JSON mutations and reject requests from another browser origin."""
-    if request.headers.get("origin") != str(request.base_url).rstrip("/"):
-        raise HTTPException(403, "Chỉ thao tác từ giao diện ứng dụng này.")
+    require_trusted_origin(request)
     body = bytearray()
     async for chunk in request.stream():
         if len(body) + len(chunk) > 65536:
@@ -866,9 +867,7 @@ def install(app, workflow: Workflow):
     """Same-origin mutation API; no arbitrary filesystem paths from browsers."""
 
     def origin(request):
-        expected = str(request.base_url).rstrip("/")
-        if request.headers.get("origin") != expected:
-            raise HTTPException(403, "Chỉ thao tác từ giao diện ứng dụng này.")
+        require_trusted_origin(request)
 
     def failure(exc):
         return HTTPException(400, str(exc))
@@ -994,10 +993,17 @@ def install(app, workflow: Workflow):
         with workflow.lock:
             try:
                 workflow.idle()
-                archive = workflow.folder(dataset_id) / (
-                    "colab-job-" + uuid.uuid4().hex + ".zip"
-                )
-                export_job(ROOT, workflow.get(dataset_id), archive)
+                data = workflow.get(dataset_id)
+                prefix_parts = []
+                for v in data.get("videos", []):
+                    cam = re.sub(r"[^\w\-.]+", "_", str(v.get("camera_id", ""))).strip("_")
+                    vid = re.sub(r"[^\w\-.]+", "_", Path(v.get("name") or v.get("source", "")).stem).strip("_")
+                    part = f"{cam}_{vid}" if cam else vid
+                    if part:
+                        prefix_parts.append(part)
+                prefix = "_".join(prefix_parts)[:80] or dataset_id[:8]
+                archive = workflow.folder(dataset_id) / f"colab-job-{prefix}.zip"
+                export_job(ROOT, data, archive)
                 return FileResponse(
                     archive, media_type="application/zip", filename=archive.name
                 )
@@ -1113,7 +1119,7 @@ def install(app, workflow: Workflow):
             retry = payload.get("retry", False)
             if not isinstance(retry, bool):
                 raise ValueError("retry must be a boolean")
-            workflow.verify_start(dataset_id, str(request.base_url).rstrip("/"), retry)
+            workflow.verify_start(dataset_id, request.app.state.trusted_origins[0], retry)
             return workflow.public(dataset_id)
         except (ValueError, OSError) as exc:
             raise failure(exc)

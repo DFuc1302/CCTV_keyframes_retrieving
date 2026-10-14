@@ -47,6 +47,7 @@ class DispatchApiTests(unittest.TestCase):
             encoder_factory=api_fixture.ApiEncoder,
             event_packages={},
             dispatch_store=self.store,
+            trusted_origins=("http://testserver",),
         )
         return fixture.stack.enter_context(TestClient(app))
 

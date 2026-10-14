@@ -46,6 +46,7 @@ class TrafficApiTests(unittest.TestCase):
             traffic_dir=traffic_dir or self.metrics.output,
             tracking_dir=self.track.output,
             roi_preview_dir=self.roi,
+            trusted_origins=("http://testserver",),
         )
         return self.api.stack.enter_context(TestClient(app))
 

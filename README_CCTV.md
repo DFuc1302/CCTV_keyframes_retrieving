@@ -2,6 +2,8 @@
 
 Project kế thừa hệ thống tìm kiếm video đa phương thức, mở rộng sang truy hồi CCTV, phát hiện nghi tai nạn/tắc đường và hỗ trợ phân bổ cảnh sát. Môi trường mục tiêu: Windows 11 Native, PowerShell, RTX 4070 Laptop 8GB.
 
+> 📖 **Dành cho thành viên nhóm:** Đọc ngay **[Báo Cáo Kỹ Thuật Tổng Hợp (TEAM_TECHNICAL_REPORT.md)](docs/TEAM_TECHNICAL_REPORT.md)** để nắm toàn bộ bài toán, kiến trúc 12 stage và cách chạy hệ thống. Toàn bộ sơ đồ tài liệu chi tiết được tổng hợp tại **[Bản Đồ Tài Liệu (docs/README.md)](docs/README.md)**.
+
 Đọc `docs/M0_INVENTORY.md` để biết nguồn kế thừa, môi trường đã khảo sát và các điều kiện còn thiếu. `README.md` là tài liệu legacy, chứa hướng dẫn WSL và không đại diện cho quy trình Windows mới.
 
 Hướng dẫn runtime Windows: `docs/WINDOWS_SETUP.md`.

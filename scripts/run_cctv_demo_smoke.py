@@ -87,10 +87,12 @@ def run(
     worker = None
     errors: list[BaseException] = []
     previous_device = os.environ.get("CCTV_DEVICE")
+    previous_port = os.environ.get("CCTV_PORT")
     try:
         if not existing_server:
             listener = reserve_port(port)
             os.environ["CCTV_DEVICE"] = device
+            os.environ["CCTV_PORT"] = str(port)
             server = uvicorn.Server(
                 uvicorn.Config(
                     "app.cctv:create_app",
@@ -141,6 +143,10 @@ def run(
                     os.environ.pop("CCTV_DEVICE", None)
                 else:
                     os.environ["CCTV_DEVICE"] = previous_device
+                if previous_port is None:
+                    os.environ.pop("CCTV_PORT", None)
+                else:
+                    os.environ["CCTV_PORT"] = previous_port
     if errors:
         raise RuntimeError(f"Demo server failed: {errors[0]}")
     return dict(

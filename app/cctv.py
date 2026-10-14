@@ -24,6 +24,7 @@ from app.cctv_dispatch import DispatchPackage, DispatchStore
 from app.cctv_events import EventStore
 from app.cctv_overlay import OverlayStore
 from app.cctv_traffic import TrafficStore
+from app.security import harden, resolve_trusted_origins
 from app.query_hints import expand_bilingual_query
 from pipeline.cctv.clip_process import ProcessClipEncoder
 from pipeline.cctv.index import model_recipe
@@ -251,6 +252,7 @@ def create_app(
     overlay_manifest: Path | None = None,
     workflow_dir: Path | None = None,
     stitched_dir: Path | None = None,
+    trusted_origins: tuple[str, ...] | None = None,
 ) -> FastAPI:
     """Build the CCTV demo using independent config; legacy app remains available."""
     runtime = Runtime(
@@ -437,12 +439,14 @@ def create_app(
                 await run_in_threadpool(workflow.thread.join, 15)
             runtime.close()
 
+    origins = resolve_trusted_origins(trusted_origins)
     app = FastAPI(title="CCTV Keyframe Retrieval", lifespan=lifespan)
     app.state.cctv = runtime
     app.state.traffic = traffic
     app.state.overlays = overlays
     app.state.events = events
     app.state.dispatch = proposals
+    harden(app, origins)
     from app.cctv_workflow import Workflow, install, read_payload
 
     previous = None
@@ -560,8 +564,6 @@ def create_app(
 
     @app.post("/cctv/workflow/review/{package_id}")
     async def workflow_review(package_id: str, request: Request):
-        if request.headers.get("origin") != str(request.base_url).rstrip("/"):
-            raise HTTPException(403, "Chỉ review từ UI ứng dụng.")
         payload = await read_payload(request)
         from pipeline.cctv.event_review import submit_review
 
@@ -588,8 +590,6 @@ def create_app(
 
     @app.post("/cctv/workflow/proposal/{package_id}")
     async def workflow_proposal(package_id: str, request: Request):
-        if request.headers.get("origin") != str(request.base_url).rstrip("/"):
-            raise HTTPException(403, "Chỉ phân bổ từ UI ứng dụng.")
         payload = await read_payload(request)
         from pipeline.cctv.dispatch import EventScenario, propose_dispatch
         from pipeline.cctv.ingest import save_json

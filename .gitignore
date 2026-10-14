@@ -219,6 +219,7 @@ outputs/
 raw/
 keyframes/
 embeddings/
+strix_runs/
 *.pt
 *.pth
 *.safetensors

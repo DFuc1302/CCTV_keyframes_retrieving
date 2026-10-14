@@ -40,6 +40,7 @@ class OverlayApiTests(unittest.TestCase):
             overlay_dir=output or self.output,
             overlay_manifest=self.track.manifest,
             stitched_dir=stitched_dir,
+            trusted_origins=("http://testserver",),
         )
         return api.stack.enter_context(TestClient(app))
 

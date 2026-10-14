@@ -112,6 +112,12 @@ def model_recipe(config_path: Path, device: str) -> tuple[dict, Path]:
     # Reading the installed version must not initialize Torch in the UI coordinator.
     config = json.loads(config_path.read_text(encoding="utf-8"))
     local = Path(config["path"]).resolve()
+    path_norm = config.get("path", "").replace("\\", "/")
+    if not local.is_dir() and "outputs/model-cache" in path_norm:
+        rel = path_norm.split("outputs/model-cache")[-1].lstrip("/")
+        fallback = Path(__file__).resolve().parents[2] / "outputs/model-cache" / rel
+        if fallback.is_dir():
+            local = fallback
     if not local.is_dir() or not config.get("model") or not config.get("revision"):
         raise ValueError(
             "Model cache descriptor requires model, revision and local path"

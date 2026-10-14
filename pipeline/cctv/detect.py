@@ -42,6 +42,12 @@ def model_recipe(
     """Verify local weights before loading; fingerprint parameters and code."""
     descriptor = json.loads(config.read_text(encoding="utf-8-sig"))
     weights = Path(descriptor["path"]).resolve()
+    path_norm = descriptor.get("path", "").replace("\\", "/")
+    if not weights.is_file() and "outputs/model-cache" in path_norm:
+        rel = path_norm.split("outputs/model-cache")[-1].lstrip("/")
+        fallback = Path(__file__).resolve().parents[2] / "outputs/model-cache" / rel
+        if fallback.is_file():
+            weights = fallback
     if (
         not weights.is_file()
         or weights.suffix != ".pt"

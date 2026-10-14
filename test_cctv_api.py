@@ -79,6 +79,7 @@ class CCTVApiTests(unittest.TestCase):
             self.preview,
             "cpu",
             encoder_factory=ApiEncoder,
+            trusted_origins=("http://testserver",),
         )
         return self.stack.enter_context(TestClient(app))
 

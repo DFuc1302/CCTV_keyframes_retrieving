@@ -14,14 +14,17 @@ try {
     $portProbe.Stop()
 }
 $previousDevice = [Environment]::GetEnvironmentVariable('CCTV_DEVICE', 'Process')
+$previousPort = [Environment]::GetEnvironmentVariable('CCTV_PORT', 'Process')
 Push-Location $repositoryRoot
 try {
     $env:CCTV_DEVICE = $Device
+    $env:CCTV_PORT = "$Port"
     Write-Host "CCTV demo: http://127.0.0.1:$Port - Ctrl+C to stop."
     # One worker owns one CLIP instance. Never enable reload/multiple workers on 8GB.
     & $venvPython -m uvicorn app.cctv:create_app --factory --host 127.0.0.1 --port $Port --workers 1
     if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 130) { throw "Server exited: $LASTEXITCODE" }
 } finally {
     [Environment]::SetEnvironmentVariable('CCTV_DEVICE', $previousDevice, 'Process')
+    [Environment]::SetEnvironmentVariable('CCTV_PORT', $previousPort, 'Process')
     Pop-Location
 }

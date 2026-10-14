@@ -46,6 +46,7 @@ class EventApiTests(unittest.TestCase):
                     self.events.source.root / "missing-review",
                 ),
             },
+            trusted_origins=("http://testserver",),
         )
         return self.api.stack.enter_context(TestClient(app))
 

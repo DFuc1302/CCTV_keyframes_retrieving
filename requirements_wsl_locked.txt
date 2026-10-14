@@ -6,10 +6,9 @@
 
 --extra-index-url https://download.pytorch.org/whl/cu118
 
-# Build tools. openai-whisper setup.py imports pkg_resources, which is provided
-# by setuptools. Keep setuptools pinned and install with --no-build-isolation.
-setuptools==69.5.1
-wheel==0.43.0
+# openai-whisper's setup.py imports pkg_resources; setuptools 83 failed --no-build-isolation metadata prep, so stay on 80.9.0 (fixes CVE-2025-47273/CVE-2024-6345; CVE-2026-59890 accepted).
+setuptools==80.9.0
+wheel==0.48.0
 
 # Core numeric stack. Keep numpy < 2.0 for broad ML/CV compatibility.
 numpy==1.26.4
@@ -33,7 +32,7 @@ Pillow==10.4.0
 # API / server
 fastapi==0.115.6
 uvicorn[standard]==0.34.0
-python-multipart==0.0.20
+python-multipart==0.0.31
 
 # Vector search
 faiss-cpu==1.9.0.post1
@@ -47,11 +46,11 @@ numba==0.60.0
 tqdm==4.67.1
 
 # Utility dependencies commonly required by the stack above.
-requests==2.32.3
+requests==2.34.2
 PyYAML==6.0.2
 regex==2024.11.6
-filelock==3.16.1
+filelock==3.32.3
 safetensors==0.4.5
 huggingface-hub==0.26.5
 redis==5.2.1
-sentence-transformers==3.3.1
+sentence-transformers==5.7.0

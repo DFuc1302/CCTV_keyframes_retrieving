@@ -18,6 +18,7 @@ try {
         $launcherPath = $env:Path
         Remove-Item Env:\PATH -ErrorAction SilentlyContinue
         $env:Path = $launcherPath
+        $env:CCTV_PORT = "$Port"
         Start-Process -FilePath $python -ArgumentList @('-m','uvicorn','app.cctv:create_app','--factory','--host','127.0.0.1','--port',"$Port",'--workers','1') -WorkingDirectory $root -WindowStyle Hidden -RedirectStandardOutput (Join-Path $logs "launcher-$token.out.txt") -RedirectStandardError (Join-Path $logs "launcher-$token.err.txt") | Out-Null
         $until = (Get-Date).AddSeconds(120)
         do {

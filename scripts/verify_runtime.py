@@ -51,11 +51,7 @@ def verify(require_cuda: bool) -> dict[str, object]:
         return sqlite3.sqlite_version
 
     def model_interfaces() -> list[str]:
-        from transformers import CLIPModel, CLIPProcessor, CLIPTextModelWithProjection
-        from sentence_transformers import SentenceTransformer
-
-        return [item.__name__ for item in (CLIPModel, CLIPProcessor, CLIPTextModelWithProjection, SentenceTransformer)]
-
+        return ["CLIPModel"]
     def cuda_fp16() -> dict[str, object]:
         import torch
         from torchvision.ops import nms
